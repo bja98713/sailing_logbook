@@ -22,6 +22,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  {% verbatim %}
   <script type="text/babel">
     const { useState, useEffect } = React;
 
@@ -75,6 +76,7 @@
 
     ReactDOM.createRoot(document.getElementById('consumable-react-root')).render(<ConsumableWidget />);
   </script>
+  {% endverbatim %}
 
 <!-- Filtres -->
 <form class="filters" method="get">
