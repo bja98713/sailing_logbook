@@ -28,8 +28,18 @@ jobs:
 
       - name: Install dependencies (verbose)
         run: |
+          mkdir -p ci-debug
           cd frontend
-          npm install --verbose
+          npm install --verbose 2>&1 | tee ../ci-debug/npm-install.log
+
+      - name: Commit debug log (always)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ci-debug -A || true
+          git commit -m "chore(ci): add npm-install debug log [skip ci]" || echo "no changes"
+          git push origin HEAD:main || echo "push failed"
 
       - name: Build frontend
         run: |
