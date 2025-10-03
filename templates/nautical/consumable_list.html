@@ -16,6 +16,66 @@
   <h1>📦 Consommables</h1>
   <p><a href="/">Accueil</a> · <a href="/consommables/new/">+ Nouveau consommable</a></p>
 
+  <!-- React widget: valeur totale du stock + recherche client-side -->
+  <div id="consumable-react-root" style="margin: .75rem 0;"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function ConsumableWidget() {
+      const [items, setItems] = useState([]);
+      const [filter, setFilter] = useState('');
+
+      useEffect(() => {
+        // fetch via DRF endpoint
+        axios.get('/api/consommables/').then(res => {
+          setItems(res.data);
+        }).catch(err => {
+          console.error('Erreur chargement consommables', err);
+        });
+      }, []);
+
+      const totalValue = items.reduce((acc, it) => {
+        const q = Number(it.quantity || 0);
+        const p = Number(it.price_eur || 0);
+        return acc + q * p;
+      }, 0);
+
+      const filtered = items.filter(it => {
+        if (!filter) return true;
+        const s = filter.toLowerCase();
+        return (it.name || '').toLowerCase().includes(s) || (it.reference || '').toLowerCase().includes(s);
+      });
+
+      return (
+        <div style={{border: '1px solid #e0e6ef', padding: '10px', borderRadius: 6}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <div>
+              <strong>Valeur totale du stock :</strong>
+              <span style={{marginLeft:8}}>{totalValue.toFixed(2)} €</span>
+            </div>
+            <div>
+              <input placeholder="Recherche client-side" value={filter} onChange={e => setFilter(e.target.value)} />
+            </div>
+          </div>
+          <div style={{marginTop:8}}>
+            <small>{filtered.length} éléments affichés (sur {items.length})</small>
+            <ul>
+              {filtered.slice(0,50).map(it => (
+                <li key={it.id}>{it.name} — {it.quantity} × {(it.price_eur || 0).toFixed(2)} €</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('consumable-react-root')).render(<ConsumableWidget />);
+  </script>
+
 <!-- Filtres -->
 <form class="filters" method="get">
   <input type="search" name="q" placeholder="Rechercher (nom, référence, remarque)" value="{{ q }}">

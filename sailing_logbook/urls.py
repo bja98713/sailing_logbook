@@ -35,5 +35,7 @@ urlpatterns = [
     path('consommables/<int:pk>/edit/', views.ConsumableUpdateView.as_view(), name='consumable_edit'),
     path('consommables/<int:pk>/delete/', views.ConsumableDeleteView.as_view(), name='consumable_delete'),
     path('consommables/export/pdf/', views.ConsumablePdfView.as_view(), name='consumable_export_pdf'),
+    # Frontend React (build statique)
+    path('frontend/consommables/', lambda req: __import__('django.shortcuts').shortcuts.render(req, 'nautical/consumable_frontend.html'), name='consumable_frontend'),
 
 ] + (static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) if settings.DEBUG else [])

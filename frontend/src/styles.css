@@ -1,0 +1,10 @@
+body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin: 0; padding: 10px; }
+.app { max-width: 980px; margin: 0 auto; }
+.app-header { display:flex; justify-content:space-between; align-items:center }
+.controls { margin: 10px 0 }
+.list { list-style:none; padding:0 }
+.item { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee }
+.left { }
+.name { font-weight:600 }
+.ref { color:#666; font-size:0.9rem }
+.right { color:#0a2342 }
