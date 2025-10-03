@@ -1,0 +1,7 @@
+
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Équipage</title>
+<link rel="stylesheet" href="/static/base.css"></head><body>
+<h1>👥 Équipage</h1><p><a href="/">Accueil</a></p>
+<table><thead><tr><th>Nom</th><th>Rôle</th><th>Contact</th><th>Licence</th></tr></thead>
+<tbody>{% for m in object_list %}<tr><td>{{ m.full_name }}</td><td>{{ m.role }}</td><td>{{ m.contact }}</td><td>{{ m.has_license|yesno:"Oui,Non" }}</td></tr>{% empty %}<tr><td colspan="4">Aucun membre.</td></tr>{% endfor %}</tbody></table>
+</body></html>

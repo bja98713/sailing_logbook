@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>{{ object|default_if_none:"Nouveau consommable" }}</title>
+  <link rel="stylesheet" href="/static/base.css">
+</head>
+<body>
+  <h1>{{ object|yesno:"Modifier le consommable,Nouveau consommable" }}</h1>
+  <p><a href="{% url 'consumable_list' %}">← Retour</a></p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Enregistrer</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,48 @@
+
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Détail voyage</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.media-card{border:1px solid #eee;padding:8px;border-radius:8px}img{max-width:100%;height:auto;border-radius:6px}</style>
+</head><body>
+<p><a href="/voyages/">← Retour</a></p>
+<h1>{{ object.departure_port }} → {{ object.arrival_port }}</h1>
+<p>
+  <a href="{% url 'voyage_edit' object.pk %}">✏️ Modifier</a>
+  ·
+  <a href="{% url 'voyage_delete' object.pk %}">🗑️ Supprimer</a>
+</p>
+{% if object.cover_photo %}<p><img src="{{ object.cover_photo.url }}" alt="Cover"></p>{% endif %}
+<p><strong>Départ :</strong> {{ object.start_datetime }} | <strong>Arrivée :</strong> {{ object.end_datetime }}</p>
+<p><strong>Positions :</strong> {{ object.start_position }} → {{ object.end_position }}</p>
+<p><strong>Distance :</strong> {{ object.distance_nm }} NM | <strong>Vitesse moy :</strong> {{ object.avg_speed_kn }} kn</p>
+<p><strong>Météo :</strong> {{ object.weather }} | <strong>Vent :</strong> {{ object.wind }} | <strong>Mer :</strong> {{ object.sea_state }}</p>
+<p><strong>Moteur :</strong> {{ object.engine_hours }} h | <strong>Carburant :</strong> {{ object.fuel_liters }} L</p>
+<p><strong>Équipage :</strong> {% for m in object.crew.all %}{{ m.full_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</p>
+<h3>Notes</h3><p style="white-space: pre-wrap">{{ object.notes }}</p>
+
+<h3>Maintenance liée</h3>
+<ul>{% for m in object.maintenance.all %}
+  <li>{{ m.date }} – {{ m.get_equipment_display }} : {{ m.description|truncatechars:80 }}</li>
+{% empty %}<li>—</li>{% endfor %}</ul>
+
+<h3>Médias</h3>
+<div class="media-grid">
+{% for media in object.media_assets.all %}
+  <div class="media-card">
+    {% if media.image %}<img src="{{ media.image.url }}" alt="{{ media.caption }}">{% endif %}
+    <p>{{ media.caption }}</p>
+    {% if media.file %}<a href="{{ media.file.url }}">Télécharger</a>{% endif %}
+  </div>
+{% empty %}<p>Aucun média.</p>{% endfor %}
+</div>
+
+<h4>Ajouter un média</h4>
+<form action="/voyages/{{ object.pk }}/upload/" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <label>Type</label>
+  <select name="kind"><option value="photo">Photo</option><option value="video">Vidéo (fichier)</option></select>
+  <label>Image</label><input type="file" name="image" accept="image/*">
+  <label>Fichier</label><input type="file" name="file">
+  <label>Légende</label><input type="text" name="caption">
+  <button type="submit">Uploader</button>
+</form>
+</body></html>

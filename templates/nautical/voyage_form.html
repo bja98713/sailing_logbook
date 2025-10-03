@@ -1,0 +1,69 @@
+
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Nouveau voyage</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.full{grid-column:1/-1}.search-input{margin:6px 0}</style>
+</head><body>
+<h1>Créer un voyage</h1><p><a href="/voyages/">← Retour</a></p>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="grid">
+    <div>{{ form.start_datetime.label_tag }} {{ form.start_datetime }}</div>
+    <div>{{ form.end_datetime.label_tag }} {{ form.end_datetime }}</div>
+    <div>{{ form.departure_port.label_tag }} {{ form.departure_port }}</div>
+    <div>{{ form.arrival_port.label_tag }} {{ form.arrival_port }}</div>
+    <div>{{ form.start_position.label_tag }} {{ form.start_position }}</div>
+    <div>{{ form.end_position.label_tag }} {{ form.end_position }}</div>
+    <div>{{ form.distance_nm.label_tag }} {{ form.distance_nm }}</div>
+    <div>{{ form.avg_speed_kn.label_tag }} {{ form.avg_speed_kn }}</div>
+    <div>{{ form.weather.label_tag }} {{ form.weather }}</div>
+    <div>{{ form.wind.label_tag }} {{ form.wind }}</div>
+    <div>{{ form.sea_state.label_tag }} {{ form.sea_state }}</div>
+    <div>{{ form.tide_current.label_tag }} {{ form.tide_current }}</div>
+    <div>{{ form.avg_course.label_tag }} {{ form.avg_course }}</div>
+    <div>{{ form.engine_hours.label_tag }} {{ form.engine_hours }}</div>
+    <div>{{ form.fuel_liters.label_tag }} {{ form.fuel_liters }}</div>
+    <div>{{ form.photos_url.label_tag }} {{ form.photos_url }}</div>
+
+    <div class="full">
+      <label>Recherche équipage</label>
+      <input class="search-input" type="text" placeholder="Filtrer les membres..." oninput="filterCrew(this.value)">
+      {{ form.crew }}
+    </div>
+
+    <div class="full">{{ form.notes.label_tag }} {{ form.notes }}</div>
+    <div class="full">{{ form.cover_photo.label_tag }} {{ form.cover_photo }}</div>
+  </div>
+  <hr>
+<h2>🛠️ Maintenance associée</h2>
+{% if maintenance_formset %}
+  {{ maintenance_formset.management_form }}
+  <div class="grid full">
+    {% for mf in maintenance_formset %}
+      <fieldset style="border:1px solid #eee;padding:10px;border-radius:8px;margin-bottom:10px">
+        <div class="grid">
+          <div>{{ mf.date.label_tag }} {{ mf.date }}</div>
+          <div>{{ mf.equipment.label_tag }} {{ mf.equipment }}</div>
+          <div class="full">{{ mf.description.label_tag }} {{ mf.description }}</div>
+          <div>{{ mf.cost_eur.label_tag }} {{ mf.cost_eur }}</div>
+          <div>{{ mf.engine_hours_at_time.label_tag }} {{ mf.engine_hours_at_time }}</div>
+          <div>{{ mf.next_due_date.label_tag }} {{ mf.next_due_date }}</div>
+          {% if mf.DELETE %}
+            <div><label>{{ mf.DELETE }} Supprimer</label></div>
+          {% endif %}
+        </div>
+      </fieldset>
+    {% endfor %}
+  </div>
+  <p style="font-size:.9em;opacity:.8">Astuce : augmente “extra” dans le code pour plus de lignes vides.</p>
+{% endif %}
+
+  <button type="submit">Enregistrer</button>
+</form>
+<script>
+function filterCrew(q){
+  const select=document.querySelector('.select-crew'); if(!select)return;
+  const s=(q||'').toLowerCase();
+  for(const opt of select.options){ opt.style.display = opt.text.toLowerCase().includes(s)?'block':'none'; }
+}
+</script>
+</body></html>

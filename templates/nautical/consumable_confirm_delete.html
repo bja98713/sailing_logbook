@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Supprimer le consommable</title>
+  <link rel="stylesheet" href="/static/base.css">
+</head>
+<body>
+  <h1>🗑️ Supprimer ce consommable ?</h1>
+  <p><strong>{{ object.name }}</strong> — {{ object.get_origin_display }} {% if object.reference %} ({{ object.reference }}){% endif %}</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Oui, supprimer</button>
+    <a href="{% url 'consumable_list' %}">Annuler</a>
+  </form>
+</body>
+</html>

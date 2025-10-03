@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Consommables</title>
+  <link rel="stylesheet" href="/static/base.css">
+  <style>
+    .thumb { max-width: 80px; max-height: 80px; border-radius: 6px; }
+    .actions a { margin-right: .5rem; }
+    .filters { display:flex; gap:8px; align-items:center; margin:.75rem 0; }
+    .pagination a, .pagination span { margin-right:.4rem; }
+    .pagination { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>📦 Consommables</h1>
+  <p><a href="/">Accueil</a> · <a href="/consommables/new/">+ Nouveau consommable</a></p>
+
+<!-- Filtres -->
+<form class="filters" method="get">
+  <input type="search" name="q" placeholder="Rechercher (nom, référence, remarque)" value="{{ q }}">
+  <select name="origin">
+    <option value="">Toutes origines</option>
+    {% for value, label in origin_choices %}
+      <option value="{{ value }}" {% if value == origin_selected %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrer</button>
+  <a href="/consommables/">Réinitialiser</a>
+
+  <!-- 👉 Export CSV des résultats filtrés -->
+  <a style="margin-left:8px"
+     href="?{% if querystring %}{{ querystring }}&{% endif %}export=csv">
+     Exporter CSV
+  </a>
+  <a style="margin-left:8px"
+   href="/consommables/export/pdf/{% if querystring %}?{{ querystring }}{% endif %}">
+   Exporter PDF (A4)
+</a>
+
+</form>
+
+
+  <p>Total : {{ page_obj.paginator.count }}</p>
+
+  <table>
+    <thead>
+  <tr><th>Image</th><th>Nom</th><th>Origine</th><th>Référence</th><th>Qté</th><th>Prix (€)</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for c in consumables %}
+        <tr>
+          <!-- Image / Téléchargement -->
+          <td>
+            {% if c.image %}
+              {% with name=c.image.name|lower %}
+                {% if name|slice:"-4:" == ".jpg" or name|slice:"-5:" == ".jpeg" or name|slice:"-4:" == ".png" %}
+                  <img class="thumb" src="{{ c.image.url }}" alt="{{ c.name }}">
+                {% else %}
+                  <a href="{{ c.image.url }}">Télécharger</a>
+                {% endif %}
+              {% endwith %}
+            {% else %}—{% endif %}
+          </td>
+
+          <td>{{ c.name }}</td>
+          <td>{{ c.get_origin_display }}</td>
+          <td>{{ c.reference }}</td>
+          <td>{{ c.quantity }}</td>
+          <td>{% if c.price_eur %}{{ c.price_eur|floatformat:2 }} €{% else %}—{% endif %}</td>
+          <td class="actions">
+            <a href="{% url 'consumable_edit' c.pk %}">Modifier</a>
+            <a href="{% url 'consumable_delete' c.pk %}">Supprimer</a>
+          </td>
+        </tr>
+      {% empty %}
+  <tr><td colspan="7">Aucun consommable.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+    <div class="pagination">
+      {% if page_obj.has_previous %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page=1">« Première</a>
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">‹ Précédent</a>
+      {% endif %}
+
+      <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+
+      {% if page_obj.has_next %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Suivant ›</a>
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Dernière »</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,10 @@
+
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:2rem}
+h1{margin-bottom:.5rem}
+nav a{margin-right:.75rem}
+table{border-collapse:collapse;width:100%}
+th,td{padding:.5rem;border-bottom:1px solid #ddd;text-align:left}
+a{text-decoration:none}a:hover{text-decoration:underline}
+button{padding:.5rem .75rem}
+label{display:block;margin-top:.5rem}
+input,select,textarea{width:100%;max-width:100%}
