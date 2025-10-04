@@ -13,8 +13,18 @@
   </style>
 </head>
 <body>
-  <h1>📦 Consommables</h1>
-  <p><a href="/">Accueil</a> · <a href="/consommables/new/">+ Nouveau consommable</a></p>
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <h1>📦 Consommables</h1>
+        <p class="muted"><a href="/">Accueil</a> · <a href="/consommables/new/">+ Nouveau consommable</a></p>
+      </div>
+      <div>
+        <a class="tag" href="/consommables/new/">+ Nouveau</a>
+      </div>
+    </div>
+
+    <main class="card">
 
   <!-- React widget: valeur totale du stock + recherche client-side -->
   <div id="consumable-react-root" style="margin: .75rem 0;"></div>
@@ -78,8 +88,8 @@
   </script>
   {% endverbatim %}
 
-<!-- Filtres -->
-<form class="filters" method="get">
+  <!-- Filtres -->
+  <form class="filters controls" method="get">
   <input type="search" name="q" placeholder="Rechercher (nom, référence, remarque)" value="{{ q }}">
   <select name="origin">
     <option value="">Toutes origines</option>
@@ -103,9 +113,10 @@
 </form>
 
 
-  <p>Total : {{ page_obj.paginator.count }}</p>
+    <p>Total : <strong>{{ page_obj.paginator.count }}</strong></p>
 
-  <table>
+    <div style="overflow:auto">
+    <table>
     <thead>
   <tr><th>Image</th><th>Nom</th><th>Origine</th><th>Référence</th><th>Qté</th><th>Prix (€)</th><th>Actions</th></tr>
     </thead>
@@ -130,9 +141,11 @@
           <td>{{ c.reference }}</td>
           <td>{{ c.quantity }}</td>
           <td>{% if c.price_eur %}{{ c.price_eur|floatformat:2 }} €{% else %}—{% endif %}</td>
-          <td class="actions">
-            <a href="{% url 'consumable_edit' c.pk %}">Modifier</a>
-            <a href="{% url 'consumable_delete' c.pk %}">Supprimer</a>
+          <td>
+            <div class="table-actions">
+              <a href="{% url 'consumable_edit' c.pk %}">Modifier</a>
+              <a href="{% url 'consumable_delete' c.pk %}">Supprimer</a>
+            </div>
           </td>
         </tr>
       {% empty %}
@@ -142,8 +155,8 @@
   </table>
 
   <!-- Pagination -->
-  {% if is_paginated %}
-    <div class="pagination">
+      {% if is_paginated %}
+        <div class="pagination">
       {% if page_obj.has_previous %}
         <a href="?{% if querystring %}{{ querystring }}&{% endif %}page=1">« Première</a>
         <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">‹ Précédent</a>
@@ -155,7 +168,9 @@
         <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Suivant ›</a>
         <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Dernière »</a>
       {% endif %}
-    </div>
-  {% endif %}
+        </div>
+      {% endif %}
+    </main>
+  </div>
 </body>
 </html>
