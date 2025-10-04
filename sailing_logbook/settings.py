@@ -49,10 +49,14 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static', BASE_DIR / 'static' / 'frontend']
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Emplacement du build frontend (Vite) : frontend/build -> static/frontend
 FRONTEND_DIR = BASE_DIR / 'static' / 'frontend'
+# n'ajouter le dossier frontend que s'il existe (évite l'avertissement W004
+# pendant le développement si le build n'a pas encore été exécuté)
+if FRONTEND_DIR.exists():
+    STATICFILES_DIRS.append(FRONTEND_DIR)
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
