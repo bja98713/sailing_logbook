@@ -1,3 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Checklists — Logbook{% endblock %}
+
+{% block content %}
+  <h2>Checklists</h2>
+  <!-- existing checklist table -->
+  <table>
+    <thead>
+      <tr><th>Nom</th><th>Description</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for item in object_list %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>{{ item.description }}</td>
+          <td>
+            <!-- Lien pour télécharger un PDF d'action si présent (généralement géré via l'admin) -->
+            {% if item.items.exists %}
+              <ul>
+                {% for it in item.items.all %}
+                  <li>
+                    {{ it.label }}
+                    {% if it.action %}
+                      — <a href="{{ it.action.url }}" target="_blank">Télécharger la procédure (PDF)</a>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3">Aucune checklist.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
 <!doctype html>
 <html lang="fr">
 <head>

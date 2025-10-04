@@ -28,6 +28,7 @@ class MaintenanceRecordSerializer(serializers.ModelSerializer):
 class ChecklistItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChecklistItem
+        # expose the new action file field
         fields = '__all__'
 
 class ChecklistSerializer(serializers.ModelSerializer):

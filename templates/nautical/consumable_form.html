@@ -1,3 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ object|default_if_none:"Nouveau consommable" }} — Logbook{% endblock %}
+
+{% block content %}
+  <h2>{{ object|yesno:"Modifier le consommable,Nouveau consommable" }}</h2>
+  <p><a href="{% url 'consumable_list' %}">← Retour</a></p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Enregistrer</button>
+  </form>
+{% endblock %}
 <!doctype html>
 <html lang="fr">
 <head>

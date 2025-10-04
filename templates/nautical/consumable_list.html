@@ -1,9 +1,8 @@
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <title>Consommables</title>
-  <link rel="stylesheet" href="/static/base.css">
+{% extends 'base.html' %}
+
+{% block title %}Consommables — Logbook{% endblock %}
+
+{% block head_extra %}
   <style>
     .thumb { max-width: 80px; max-height: 80px; border-radius: 6px; }
     .actions a { margin-right: .5rem; }
@@ -11,28 +10,104 @@
     .pagination a, .pagination span { margin-right:.4rem; }
     .pagination { margin-top: 1rem; }
   </style>
-</head>
-<body>
-  <div class="container">
-    <div class="topbar">
-      <div>
-        <h1>📦 Consommables</h1>
-        <p class="muted"><a href="/">Accueil</a> · <a href="/consommables/new/">+ Nouveau consommable</a></p>
-      </div>
-      <div>
-        <a class="tag" href="/consommables/new/">+ Nouveau</a>
-      </div>
-    </div>
+{% endblock %}
 
-    <main class="card">
+{% block content %}
+  <div class="topbar">
+    <div>
+      <h2>📦 Consommables</h2>
+      <p class="muted"><a href="/">Accueil</a> · <a href="/consommables/new/">+ Nouveau consommable</a></p>
+    </div>
+    <div>
+      <a class="tag" href="/consommables/new/">+ Nouveau</a>
+    </div>
+  </div>
 
   <!-- React widget: valeur totale du stock + recherche client-side -->
   <div id="consumable-react-root" style="margin: .75rem 0;"></div>
+
+  <!-- Filtres -->
+  <form class="filters controls" method="get">
+    <input type="search" name="q" placeholder="Rechercher (nom, référence, remarque)" value="{{ q }}">
+    <select name="origin">
+      <option value="">Toutes origines</option>
+      {% for value, label in origin_choices %}
+        <option value="{{ value }}" {% if value == origin_selected %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Filtrer</button>
+    <a href="/consommables/">Réinitialiser</a>
+
+    <!-- 👉 Export CSV des résultats filtrés -->
+    <a style="margin-left:8px" href="?{% if querystring %}{{ querystring }}&{% endif %}export=csv">Exporter CSV</a>
+    <a style="margin-left:8px" href="/consommables/export/pdf/{% if querystring %}?{{ querystring }}{% endif %}">Exporter PDF (A4)</a>
+  </form>
+
+  <p>Total : <strong>{{ page_obj.paginator.count }}</strong></p>
+
+  <div style="overflow:auto">
+    <table>
+      <thead>
+        <tr><th>Image</th><th>Nom</th><th>Origine</th><th>Référence</th><th>Qté</th><th>Prix (€)</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for c in consumables %}
+          <tr>
+            <td>
+              {% if c.image %}
+                {% with name=c.image.name|lower %}
+                  {% if name|slice:"-4:" == ".jpg" or name|slice:"-5:" == ".jpeg" or name|slice:"-4:" == ".png" %}
+                    <img class="thumb" src="{{ c.image.url }}" alt="{{ c.name }}">
+                  {% else %}
+                    <a href="{{ c.image.url }}">Télécharger</a>
+                  {% endif %}
+                {% endwith %}
+              {% else %}—{% endif %}
+            </td>
+
+            <td>{{ c.name }}</td>
+            <td>{{ c.get_origin_display }}</td>
+            <td>{{ c.reference }}</td>
+            <td>{{ c.quantity }}</td>
+            <td>{% if c.price_eur %}{{ c.price_eur|floatformat:2 }} €{% else %}—{% endif %}</td>
+            <td>
+              <div class="table-actions">
+                <a href="{% url 'consumable_edit' c.pk %}">Modifier</a>
+                <a href="{% url 'consumable_delete' c.pk %}">Supprimer</a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7">Aucun consommable.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if is_paginated %}
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?{% if querystring %}{{ querystring }}&{% endif %}page=1">« Première</a>
+          <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">‹ Précédent</a>
+        {% endif %}
+
+        <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+
+        {% if page_obj.has_next %}
+          <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Suivant ›</a>
+          <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Dernière »</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {% verbatim %}
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  {% verbatim %}
+
   <script type="text/babel">
     const { useState, useEffect } = React;
 
@@ -41,20 +116,10 @@
       const [filter, setFilter] = useState('');
 
       useEffect(() => {
-        // fetch via DRF endpoint
-        axios.get('/api/consommables/').then(res => {
-          setItems(res.data);
-        }).catch(err => {
-          console.error('Erreur chargement consommables', err);
-        });
+        axios.get('/api/consommables/').then(res => setItems(res.data)).catch(console.error);
       }, []);
 
-      const totalValue = items.reduce((acc, it) => {
-        const q = Number(it.quantity || 0);
-        const p = Number(it.price_eur || 0);
-        return acc + q * p;
-      }, 0);
-
+      const totalValue = items.reduce((acc, it) => acc + (Number(it.quantity || 0) * Number(it.price_eur || 0)), 0);
       const filtered = items.filter(it => {
         if (!filter) return true;
         const s = filter.toLowerCase();
@@ -87,90 +152,5 @@
     ReactDOM.createRoot(document.getElementById('consumable-react-root')).render(<ConsumableWidget />);
   </script>
   {% endverbatim %}
+{% endblock %}
 
-  <!-- Filtres -->
-  <form class="filters controls" method="get">
-  <input type="search" name="q" placeholder="Rechercher (nom, référence, remarque)" value="{{ q }}">
-  <select name="origin">
-    <option value="">Toutes origines</option>
-    {% for value, label in origin_choices %}
-      <option value="{{ value }}" {% if value == origin_selected %}selected{% endif %}>{{ label }}</option>
-    {% endfor %}
-  </select>
-  <button type="submit">Filtrer</button>
-  <a href="/consommables/">Réinitialiser</a>
-
-  <!-- 👉 Export CSV des résultats filtrés -->
-  <a style="margin-left:8px"
-     href="?{% if querystring %}{{ querystring }}&{% endif %}export=csv">
-     Exporter CSV
-  </a>
-  <a style="margin-left:8px"
-   href="/consommables/export/pdf/{% if querystring %}?{{ querystring }}{% endif %}">
-   Exporter PDF (A4)
-</a>
-
-</form>
-
-
-    <p>Total : <strong>{{ page_obj.paginator.count }}</strong></p>
-
-    <div style="overflow:auto">
-    <table>
-    <thead>
-  <tr><th>Image</th><th>Nom</th><th>Origine</th><th>Référence</th><th>Qté</th><th>Prix (€)</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      {% for c in consumables %}
-        <tr>
-          <!-- Image / Téléchargement -->
-          <td>
-            {% if c.image %}
-              {% with name=c.image.name|lower %}
-                {% if name|slice:"-4:" == ".jpg" or name|slice:"-5:" == ".jpeg" or name|slice:"-4:" == ".png" %}
-                  <img class="thumb" src="{{ c.image.url }}" alt="{{ c.name }}">
-                {% else %}
-                  <a href="{{ c.image.url }}">Télécharger</a>
-                {% endif %}
-              {% endwith %}
-            {% else %}—{% endif %}
-          </td>
-
-          <td>{{ c.name }}</td>
-          <td>{{ c.get_origin_display }}</td>
-          <td>{{ c.reference }}</td>
-          <td>{{ c.quantity }}</td>
-          <td>{% if c.price_eur %}{{ c.price_eur|floatformat:2 }} €{% else %}—{% endif %}</td>
-          <td>
-            <div class="table-actions">
-              <a href="{% url 'consumable_edit' c.pk %}">Modifier</a>
-              <a href="{% url 'consumable_delete' c.pk %}">Supprimer</a>
-            </div>
-          </td>
-        </tr>
-      {% empty %}
-  <tr><td colspan="7">Aucun consommable.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <!-- Pagination -->
-      {% if is_paginated %}
-        <div class="pagination">
-      {% if page_obj.has_previous %}
-        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page=1">« Première</a>
-        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">‹ Précédent</a>
-      {% endif %}
-
-      <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-
-      {% if page_obj.has_next %}
-        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Suivant ›</a>
-        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Dernière »</a>
-      {% endif %}
-        </div>
-      {% endif %}
-    </main>
-  </div>
-</body>
-</html>

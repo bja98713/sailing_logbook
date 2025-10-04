@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block title %}Supprimer checklist — Checklist{% endblock %}
+
+{% block content %}
+  <h2>Supprimer checklist</h2>
+  <p>Confirmez la suppression de la checklist "{{ object.name }}".</p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Supprimer</button>
+    <a href="{% url 'checklist_list' %}">Annuler</a>
+  </form>
+{% endblock %}

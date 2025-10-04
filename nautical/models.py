@@ -1,5 +1,6 @@
 
 from django.db import models
+from django.core.validators import FileExtensionValidator
 
 class CrewRole(models.TextChoices):
     SKIPPER = 'Skipper', 'Skipper'
@@ -90,6 +91,15 @@ class ChecklistItem(models.Model):
     checklist = models.ForeignKey(Checklist, on_delete=models.CASCADE, related_name='items', verbose_name='Checklist')
     label = models.CharField('Élément', max_length=200)
     required = models.BooleanField('Obligatoire', default=False)
+    # Fichier PDF associé à l'action (ex: procédure, checklist détaillée)
+    action = models.FileField(
+        'Fichier action (PDF)',
+        upload_to='checklists/actions/',
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=['pdf'])],
+        help_text='Télécharger un fichier PDF décrivant l’action ou procédure.'
+    )
 
     class Meta:
         ordering = ['id']
@@ -145,8 +155,6 @@ class MediaAsset(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()} – {self.voyage}"
-
-from django.core.validators import FileExtensionValidator
 
 class ConsumableOrigin(models.TextChoices):
     MOTEUR = 'moteur', 'Moteur'

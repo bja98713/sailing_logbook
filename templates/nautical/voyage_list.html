@@ -1,3 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}Voyages — Logbook{% endblock %}
+
+{% block content %}
+  <h2>📜 Voyages</h2>
+  <p><a href="/">Accueil</a> · <a class="tag" href="/voyages/new/">+ Nouveau voyage</a></p>
+  <table>
+    <thead>
+      <tr><th>Date départ</th><th>Départ</th><th>Arrivée</th><th>Distance (NM)</th><th>Moteur (h)</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for v in object_list %}
+        <tr>
+          <td><a href="/voyages/{{ v.pk }}/">{{ v.start_datetime }}</a></td>
+          <td>{{ v.departure_port }}</td>
+          <td>{{ v.arrival_port }}</td>
+          <td>{{ v.distance_nm }}</td>
+          <td>{{ v.engine_hours }}</td>
+          <td>
+            <a href="{% url 'voyage_detail' v.pk %}">Voir</a> ·
+            <a href="{% url 'voyage_edit' v.pk %}">Modifier</a> ·
+            <a href="{% url 'voyage_delete' v.pk %}">Supprimer</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">Aucun voyage.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
 
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Voyages</title>
 <link rel="stylesheet" href="/static/base.css"></head><body>

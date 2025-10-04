@@ -33,6 +33,8 @@ class MaintenanceAdmin(admin.ModelAdmin):
 class ChecklistItemInline(admin.TabularInline):
     model = models.ChecklistItem
     extra = 1
+    fields = ('label', 'required', 'action')
+    readonly_fields = ()
 
 @admin.register(models.Checklist)
 class ChecklistAdmin(admin.ModelAdmin):

@@ -1,3 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Maintenance — Logbook{% endblock %}
+
+{% block content %}
+  <h2>🛠️ Maintenance</h2>
+  <p><a href="/">Accueil</a></p>
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Équipement</th><th>Voyage</th><th>Coût (€)</th></tr>
+    </thead>
+    <tbody>
+      {% for m in object_list %}
+        <tr>
+          <td>{{ m.date }}</td>
+          <td>{{ m.get_equipment_display }}</td>
+          <td>{{ m.voyage }}</td>
+          <td>{{ m.cost_eur }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">Aucune intervention.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
 
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Maintenance</title>
 <link rel="stylesheet" href="/static/base.css"></head><body>

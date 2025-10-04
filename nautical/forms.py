@@ -43,3 +43,13 @@ class ConsumableForm(forms.ModelForm):
         widgets = {
             "remark": forms.Textarea(attrs={"rows": 3}),
         }
+
+from .models import Checklist
+
+class ChecklistForm(forms.ModelForm):
+    class Meta:
+        model = Checklist
+        fields = ['name', 'description']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows':3}),
+        }

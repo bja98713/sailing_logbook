@@ -97,6 +97,35 @@ class ChecklistListView(ListView):
     model = Checklist
     template_name = 'nautical/checklist_list.html'
 
+
+class ChecklistCreateView(CreateView):
+    model = Checklist
+    form_class = None
+    template_name = 'nautical/checklist_form.html'
+    success_url = reverse_lazy('checklist_list')
+
+    def get_form_class(self):
+        from .forms import ChecklistForm
+        return ChecklistForm
+
+
+class ChecklistUpdateView(UpdateView):
+    model = Checklist
+    template_name = 'nautical/checklist_form.html'
+
+    def get_form_class(self):
+        from .forms import ChecklistForm
+        return ChecklistForm
+
+    def get_success_url(self):
+        return reverse('checklist_list')
+
+
+class ChecklistDeleteView(DeleteView):
+    model = Checklist
+    template_name = 'nautical/checklist_confirm_delete.html'
+    success_url = reverse_lazy('checklist_list')
+
 class LogbookUpdateView(UpdateView):
     model = LogbookEntry
     form_class = LogbookEntryForm

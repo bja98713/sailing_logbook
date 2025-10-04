@@ -1,3 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Supprimer consommable — Logbook{% endblock %}
+
+{% block content %}
+  <h2>🗑️ Supprimer ce consommable ?</h2>
+  <p><strong>{{ object.name }}</strong> — {{ object.get_origin_display }} {% if object.reference %} ({{ object.reference }}){% endif %}</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit">Oui, supprimer</button>
+    <a href="{% url 'consumable_list' %}">Annuler</a>
+  </form>
+{% endblock %}
 <!doctype html>
 <html lang="fr">
 <head>
