@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}Chronologie — {% if view.object %}{{ view.object.date }}{% else %}Nouvelle entrée{% endif %}{% endblock %}
+
+{% block content %}
+  <h2>{% if view.object %}Modifier l'entrée{% else %}Nouvelle entrée{% endif %}</h2>
+  <form method="post">
+    {% csrf_token %}
+    <p>
+      {{ form.date.label_tag }}<br>
+      {{ form.date }}
+    </p>
+    <p>
+      {{ form.time.label_tag }}<br>
+      {{ form.time }}
+    </p>
+    <p>
+      {{ form.description.label_tag }}<br>
+      {{ form.description }}
+    </p>
+    <p>
+      {{ form.action_realisee.label_tag }}<br>
+      {{ form.action_realisee }}
+    </p>
+    <p>
+      {{ form.performer.label_tag }}<br>
+      {{ form.performer }}
+    </p>
+    <p>
+      <button type="submit">Enregistrer</button>
+      <a href="{% url 'chronology_list' %}">Annuler</a>
+    </p>
+  </form>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <!-- flatpickr CSS/JS from CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      try {
+        flatpickr('#id_date', {locale: 'fr', dateFormat: 'Y-m-d'});
+        flatpickr('#id_time', {enableTime: true, noCalendar: true, dateFormat: 'H:i', time_24hr: true});
+      } catch(e) {
+        console.warn('flatpickr init failed', e);
+      }
+    });
+  </script>
+{% endblock %}

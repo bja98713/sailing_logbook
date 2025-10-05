@@ -4,6 +4,7 @@
 
 {% block content %}
   <h2>Checklists</h2>
+  <p><a href="{% url 'checklist_create' %}">+ Nouvelle checklist</a></p>
   <!-- existing checklist table -->
   <table>
     <thead>
@@ -15,6 +16,10 @@
           <td>{{ item.name }}</td>
           <td>{{ item.description }}</td>
           <td>
+            <div class="actions">
+              <a href="{% url 'checklist_edit' item.pk %}">Modifier</a>
+              <a href="{% url 'checklist_delete' item.pk %}">Supprimer</a>
+            </div>
             <!-- Lien pour télécharger un PDF d'action si présent (généralement géré via l'admin) -->
             {% if item.items.exists %}
               <ul>

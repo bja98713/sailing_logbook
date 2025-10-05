@@ -107,6 +107,25 @@ class ChecklistCreateView(CreateView):
     def get_form_class(self):
         from .forms import ChecklistForm
         return ChecklistForm
+    
+    def get_context_data(self, **kwargs):
+        data = super().get_context_data(**kwargs)
+        from .forms import ChecklistItemFormSet
+        if self.request.POST:
+            data['items_formset'] = ChecklistItemFormSet(self.request.POST, self.request.FILES)
+        else:
+            data['items_formset'] = ChecklistItemFormSet()
+        return data
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        items_formset = context['items_formset']
+        if items_formset.is_valid():
+            response = super().form_valid(form)
+            items_formset.instance = self.object
+            items_formset.save()
+            return response
+        return self.form_invalid(form)
 
 
 class ChecklistUpdateView(UpdateView):
@@ -116,6 +135,15 @@ class ChecklistUpdateView(UpdateView):
     def get_form_class(self):
         from .forms import ChecklistForm
         return ChecklistForm
+
+    def get_context_data(self, **kwargs):
+        data = super().get_context_data(**kwargs)
+        from .forms import ChecklistItemFormSet
+        if self.request.POST:
+            data['items_formset'] = ChecklistItemFormSet(self.request.POST, self.request.FILES, instance=self.object)
+        else:
+            data['items_formset'] = ChecklistItemFormSet(instance=self.object)
+        return data
 
     def get_success_url(self):
         return reverse('checklist_list')
@@ -158,7 +186,122 @@ class LogbookDeleteView(DeleteView):
     success_url = reverse_lazy('voyage_list')
 
 from .forms import ConsumableForm
+from .forms import ChronologyForm
 from .models import Consumable
+from .models import Chronology
+from .forms import ChecklistItemFormSet
+
+class ChronologyListView(ListView):
+    model = Chronology
+    template_name = 'nautical/chronology_list.html'
+
+    def get(self, request, *args, **kwargs):
+        # prepare queryset before potential export
+        self.object_list = self.get_queryset()
+        export = request.GET.get('export')
+        if export == 'csv':
+            return self.export_csv(self.object_list)
+        if export == 'pdf':
+            return self.export_pdf(self.object_list)
+        context = self.get_context_data()
+        return self.render_to_response(context)
+
+    def export_csv(self, qs):
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="chronologie.csv"'
+        response.write('\ufeff')
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow(['Date', 'Heure', 'Description', 'Action réalisée', 'Réalisé par'])
+        for e in qs:
+            writer.writerow([
+                e.date.strftime('%Y-%m-%d'),
+                (e.time.strftime('%H:%M') if e.time else ''),
+                (e.description or '').replace('\n', ' '),
+                (e.action_realisee or '').replace('\n', ' '),
+                e.performer,
+            ])
+        return response
+
+    def export_pdf(self, qs):
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=20*mm, bottomMargin=15*mm)
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(name='Small', fontSize=9, leading=11))
+        story = []
+        from datetime import date
+        story.append(Paragraph(f"<b>Chronologie</b> — {date.today().strftime('%d/%m/%Y')}", styles['Heading2']))
+        story.append(Spacer(1, 8))
+
+        data = [['Date', 'Heure', 'Description', 'Action réalisée', 'Réalisé par']]
+        for e in qs:
+            data.append([
+                e.date.strftime('%d/%m/%Y'),
+                (e.time.strftime('%H:%M') if e.time else ''),
+                (e.description or '').replace('\n', ' '),
+                (e.action_realisee or '').replace('\n', ' '),
+                e.performer,
+            ])
+
+        # Configure column widths (approx)
+        table = Table(data, colWidths=[28*mm, 18*mm, 80*mm, 60*mm, 30*mm])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f0f3f6')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.HexColor('#0a2342')),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 10),
+            ('GRID', (0,0), (-1,-1), 0.25, colors.HexColor('#cfd8e3')),
+            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,1), (-1,-1), 9),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]))
+        story.append(table)
+
+        class NumberedCanvas(canvas.Canvas):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._saved_page_states = []
+            def showPage(self):
+                self._saved_page_states.append(dict(self.__dict__))
+                super().showPage()
+            def save(self):
+                total_pages = len(self._saved_page_states) or 1
+                for state in self._saved_page_states:
+                    self.__dict__.update(state)
+                    self._draw_page_number(total_pages)
+                    super().showPage()
+                super().save()
+            def _draw_page_number(self, total):
+                self.setFont("Helvetica", 9)
+                w, h = A4
+                self.drawRightString(w - 15*mm, 10*mm, f"Page {self._pageNumber}/{total}")
+
+        doc.build(story, canvasmaker=NumberedCanvas)
+        pdf = buffer.getvalue()
+        buffer.close()
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="chronologie.pdf"'
+        return response
+
+
+class ChronologyCreateView(CreateView):
+    model = Chronology
+    form_class = ChronologyForm
+    template_name = 'nautical/chronology_form.html'
+    success_url = reverse_lazy('chronology_list')
+
+
+class ChronologyUpdateView(UpdateView):
+    model = Chronology
+    form_class = ChronologyForm
+    template_name = 'nautical/chronology_form.html'
+    def get_success_url(self):
+        return reverse('chronology_list')
+
+
+class ChronologyDeleteView(DeleteView):
+    model = Chronology
+    template_name = 'nautical/chronology_confirm_delete.html'
+    success_url = reverse_lazy('chronology_list')
 
 class ConsumableListView(ListView):
     model = Consumable

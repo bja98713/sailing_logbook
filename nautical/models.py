@@ -192,3 +192,26 @@ class Consumable(models.Model):
     def __str__(self):
         ref = f" ({self.reference})" if self.reference else ""
         return f"{self.name}{ref}"
+
+
+class Chronology(models.Model):
+    """Chronologie d'événements à afficher dans une section 'Chronologie'."""
+    date = models.DateField('Date')
+    time = models.TimeField('Heure', null=True, blank=True)
+    description = models.TextField('Description')
+    action_realisee = models.TextField("Action réalisée", blank=True)
+
+    class Performer(models.TextChoices):
+        TERRY = 'Terry', 'Terry'
+        JEAN_ARIEL = 'Jean-Ariel', 'Jean-Ariel'
+
+    performer = models.CharField("Réalisé par", max_length=40, choices=Performer.choices, default=Performer.TERRY)
+
+    class Meta:
+        ordering = ['-date', '-time']
+        verbose_name = 'Chronologie'
+        verbose_name_plural = 'Chronologie'
+
+    def __str__(self):
+        t = f" {self.time}" if self.time else ''
+        return f"{self.date}{t} — {self.performer}: {self.description[:60]}"

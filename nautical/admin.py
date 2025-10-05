@@ -64,3 +64,10 @@ class ConsumableAdmin(admin.ModelAdmin):
     list_display = ("name", "origin", "reference", "quantity", "price_eur")
     list_filter = ("origin",)
     search_fields = ("name", "reference", "remark")
+
+
+@admin.register(models.Chronology)
+class ChronologyAdmin(admin.ModelAdmin):
+    list_display = ('date', 'time', 'performer', 'description')
+    list_filter = ('performer',)
+    search_fields = ('description', 'action_realisee')

@@ -1,12 +1,38 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ view.object.name if view.object else 'Nouvelle checklist' }} — Checklist{% endblock %}
+{% block title %}{% if view.object %}{{ view.object.name }}{% else %}Nouvelle checklist{% endif %} — Checklist{% endblock %}
 
 {% block content %}
-  <h2>{{ view.object.name if view.object else 'Créer une checklist' }}</h2>
-  <form method="post">
+  <h2>{% if view.object %}{{ view.object.name }}{% else %}Créer une checklist{% endif %}</h2>
+  <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     {{ form.as_p }}
+
+    <h3>Éléments de la checklist</h3>
+    {% if items_formset %}
+      {{ items_formset.management_form }}
+      <table>
+        <thead>
+          <tr><th>Élément</th><th>Obligatoire</th><th>Action (PDF)</th><th>Supprimer</th></tr>
+        </thead>
+        <tbody>
+        {% for f in items_formset.forms %}
+          <tr>
+            <td>{{ f.label }}</td>
+            <td>{{ f.required }}</td>
+            <td>
+              {{ f.action }}
+              {% if f.instance and f.instance.action %}
+                — <a href="{{ f.instance.action.url }}" target="_blank">Télécharger</a>
+              {% endif %}
+            </td>
+            <td>{{ f.DELETE }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
     <button type="submit">Enregistrer</button>
     <a href="{% url 'checklist_list' %}">Annuler</a>
   </form>

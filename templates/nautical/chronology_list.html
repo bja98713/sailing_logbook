@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Chronologie — Logbook{% endblock %}
+
+{% block content %}
+  <h2>Chronologie</h2>
+  <p>
+    <a href="{% url 'chronology_create' %}">+ Nouvelle entrée</a>
+    &nbsp;—&nbsp;
+    <a href="?export=csv">Export CSV</a>
+    &nbsp;|&nbsp;
+    <a href="?export=pdf">Export PDF</a>
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Heure</th>
+        <th>Description</th>
+        <th>Action</th>
+        <th>Réalisé par</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in object_list %}
+        <tr>
+          <td>{{ e.date }}</td>
+          <td>{{ e.time }}</td>
+          <td>{{ e.description|linebreaksbr }}</td>
+          <td><strong>{{ e.action_realisee }}</strong></td>
+          <td>{{ e.performer }}</td>
+          <td>
+            <a href="{% url 'chronology_edit' e.pk %}">Modifier</a> |
+            <a href="{% url 'chronology_delete' e.pk %}">Supprimer</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">Aucune entrée dans la chronologie.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
