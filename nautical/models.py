@@ -109,6 +109,76 @@ class LogbookEntry(models.Model):
 
         super().save(*args, **kwargs)
 
+    def recalculate_from_events(self):
+        """Recalculate voyage totals (distance_nm, duration_hours, avg_speed_kn)
+        from its associated VoyageEvent instances ordered by timestamp.
+        - distance_nm: sum of segment distances between consecutive events (in NM)
+        - duration_hours: hours between first and last event timestamps
+        - avg_speed_kn: distance_nm / duration_hours when possible
+        """
+        try:
+            events = list(self.events.all().order_by('timestamp'))
+            if not events:
+                # no events -> leave values as-is or clear
+                self.distance_nm = None
+                self.duration_hours = None
+                self.avg_speed_kn = None
+                super().save(update_fields=['distance_nm', 'duration_hours', 'avg_speed_kn'])
+                return
+
+            from decimal import Decimal, ROUND_HALF_UP
+            import math
+
+            total_nm = Decimal('0')
+            # compute distances between consecutive events
+            for i in range(1, len(events)):
+                prev = events[i-1]
+                cur = events[i]
+                if prev.latitude is not None and prev.longitude is not None and cur.latitude is not None and cur.longitude is not None:
+                    # haversine
+                    def to_rad(x):
+                        return math.radians(float(x))
+                    rlat1 = to_rad(prev.latitude)
+                    rlon1 = to_rad(prev.longitude)
+                    rlat2 = to_rad(cur.latitude)
+                    rlon2 = to_rad(cur.longitude)
+                    dlat = rlat2 - rlat1
+                    dlon = rlon2 - rlon1
+                    a = math.sin(dlat/2)**2 + math.cos(rlat1) * math.cos(rlat2) * math.sin(dlon/2)**2
+                    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                    meters = 6371000.0 * c
+                    nm = meters / 1852.0
+                    total_nm += Decimal(str(nm))
+                else:
+                    # fallback: if the event has stored distance_from_prev_nm use it
+                    if cur.distance_from_prev_nm is not None:
+                        total_nm += Decimal(str(cur.distance_from_prev_nm))
+
+            # round and store
+            self.distance_nm = total_nm.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if total_nm != Decimal('0') else None
+
+            # duration: difference between first and last event
+            try:
+                delta_hours = (events[-1].timestamp - events[0].timestamp).total_seconds() / 3600.0
+                self.duration_hours = Decimal(str(delta_hours)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            except Exception:
+                self.duration_hours = None
+
+            # avg speed
+            try:
+                if self.distance_nm is not None and self.duration_hours and float(self.duration_hours) > 0:
+                    avg = float(self.distance_nm) / float(self.duration_hours)
+                    self.avg_speed_kn = Decimal(str(avg)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                else:
+                    self.avg_speed_kn = None
+            except Exception:
+                self.avg_speed_kn = None
+
+            super().save(update_fields=['distance_nm', 'duration_hours', 'avg_speed_kn'])
+        except Exception:
+            # keep existing values on error
+            pass
+
 class MaintenanceRecord(models.Model):
     date = models.DateField('Date intervention')
     equipment = models.CharField('Équipement concerné', max_length=30, choices=EquipmentType.choices, default=EquipmentType.DIVERS)
@@ -344,3 +414,18 @@ class VoyageEvent(models.Model):
             pass
 
         super().save(*args, **kwargs)
+        # After saving an event, recompute voyage totals
+        try:
+            if self.voyage_id:
+                self.voyage.recalculate_from_events()
+        except Exception:
+            pass
+
+    def delete(self, *args, **kwargs):
+        voyage = self.voyage
+        super().delete(*args, **kwargs)
+        try:
+            if voyage:
+                voyage.recalculate_from_events()
+        except Exception:
+            pass

@@ -56,16 +56,31 @@
     {% empty %}<p>Aucun média.</p>{% endfor %}
   </div>
 
-  <h4>Ajouter un média</h4>
-  <form action="/voyages/{{ object.pk }}/upload/" method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <label>Type</label>
-    <select name="kind"><option value="photo">Photo</option><option value="video">Vidéo (fichier)</option></select>
-    <label>Image</label><input type="file" name="image" accept="image/*">
-    <label>Fichier</label><input type="file" name="file">
-    <label>Légende</label><input type="text" name="caption">
-    <button type="submit">Uploader</button>
-  </form>
+  <h3>Événements du voyage</h3>
+  <div id="events-panel">
+    <div id="events-list">
+      <!-- events will be inserted here by JS -->
+    </div>
+
+    <h4>Ajouter un événement</h4>
+    <form id="event-form">
+      {% csrf_token %}
+      <label>Date & heure</label>
+      <input type="datetime-local" name="timestamp" id="evt-timestamp">
+      <label>Latitude</label>
+      <input type="number" step="0.000001" name="latitude" id="evt-lat">
+      <label>Longitude</label>
+      <input type="number" step="0.000001" name="longitude" id="evt-lng">
+      <label>Détail</label>
+      <textarea name="description" id="evt-desc" rows="2"></textarea>
+      <label>Météo</label>
+      <input type="text" name="weather" id="evt-weather">
+      <div style="margin-top:8px">
+        <button type="button" id="evt-create">➕ Ajouter</button>
+        <span id="evt-status" style="margin-left:8px;font-size:.9em;opacity:.8"></span>
+      </div>
+    </form>
+  </div>
 {% endblock %}
 
 {% block scripts %}
@@ -193,10 +208,114 @@
         }).then(function(resp){ if(!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }).then(function(data){ var distEl = document.getElementById('distance-value'); if(distEl) distEl.textContent = (data.distance_nm !== null ? parseFloat(data.distance_nm).toFixed(2) : '—'); var durEl = document.getElementById('duration-value'); if(durEl) durEl.textContent = (data.duration_hours !== null ? parseFloat(data.duration_hours).toFixed(2) + ' h' : '—'); statusEl.textContent = 'Sauvegardé.'; }).catch(function(err){ console.log('save error', err); statusEl.textContent = 'Erreur sauvegarde'; });
       });
     }
+
+    // --- Events: list, create, delete, and map display ---
+    var eventsUrl = '/api/events/?voyage={{ object.pk }}';
+    var eventsListEl = document.getElementById('events-list');
+    var evtStatus = document.getElementById('evt-status');
+    var evtCreateBtn = document.getElementById('evt-create');
+
+    var eventMarkers = [];
+    function clearEventMarkers(){ eventMarkers.forEach(function(m){ map.removeLayer(m); }); eventMarkers = []; }
+
+    function renderEventRow(ev){
+      var div = document.createElement('div');
+      div.className = 'event-row';
+      div.style.border = '1px solid #eee'; div.style.padding = '6px'; div.style.marginBottom = '6px';
+      var when = new Date(ev.timestamp).toLocaleString();
+      var html = '<strong>'+ when +'</strong> — ' + (ev.description || '—') + '<br/>' + (ev.weather ? ('Météo: '+ev.weather+' | ') : '');
+      html += (ev.latitude && ev.longitude ? ('Pos: '+ev.latitude.toFixed(6)+', '+ev.longitude.toFixed(6)) : 'Pos: —');
+      if(ev.distance_from_prev_nm){ html += ' | Δ: '+parseFloat(ev.distance_from_prev_nm).toFixed(2)+' NM'; }
+      if(ev.avg_speed_since_prev_kn){ html += ' | Vavg: '+parseFloat(ev.avg_speed_since_prev_kn).toFixed(2)+' kn'; }
+      html += ' <button data-id="'+ev.id+'" class="evt-edit" style="float:right;margin-left:6px">Éditer</button>';
+      html += ' <button data-id="'+ev.id+'" class="evt-del" style="float:right">Suppr</button>';
+      div.innerHTML = html;
+      return div;
+    }
+
+    function fetchEvents(){
+      fetch(eventsUrl).then(function(r){ return r.json(); }).then(function(data){
+        eventsListEl.innerHTML = '';
+        clearEventMarkers();
+        data.forEach(function(ev){
+          eventsListEl.appendChild(renderEventRow(ev));
+          if(ev.latitude && ev.longitude){
+            var m = L.circleMarker([ev.latitude, ev.longitude], {radius:6, color:'orange'}).addTo(map).bindPopup(ev.description || 'Événement');
+            eventMarkers.push(m);
+          }
+        });
+        // wire delete buttons
+        eventsListEl.querySelectorAll('.evt-del').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var id = this.getAttribute('data-id');
+            if(!confirm('Supprimer cet événement ?')) return;
+            fetch('/api/events/'+id+'/', { method: 'DELETE', headers: {'X-CSRFToken': getCookie('csrftoken')} }).then(function(resp){ if(resp.ok){ evtStatus.textContent = 'Supprimé'; fetchEvents(); } else { evtStatus.textContent = 'Erreur suppression'; } }).catch(function(){ evtStatus.textContent = 'Erreur réseau'; });
+          });
+        });
+        // wire edit buttons
+        eventsListEl.querySelectorAll('.evt-edit').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var id = this.getAttribute('data-id');
+            // fetch event and populate the form for editing
+            fetch('/api/events/'+id+'/').then(function(r){ return r.json(); }).then(function(ev){
+              document.getElementById('evt-timestamp').value = ev.timestamp.replace('Z','');
+              document.getElementById('evt-lat').value = ev.latitude || '';
+              document.getElementById('evt-lng').value = ev.longitude || '';
+              document.getElementById('evt-desc').value = ev.description || '';
+              document.getElementById('evt-weather').value = ev.weather || '';
+              // switch create button to save
+              evtCreateBtn.textContent = '💾 Sauver';
+              evtCreateBtn.dataset.editId = id;
+            }).catch(function(){ evtStatus.textContent = 'Erreur chargement év.'; });
+          });
+        });
+      }).catch(function(){ eventsListEl.innerHTML = '<p>Erreur chargement événements</p>'; });
+    }
+
+    fetchEvents();
+
+    if(evtCreateBtn){
+      evtCreateBtn.addEventListener('click', function(){
+        var editId = evtCreateBtn.dataset.editId || null;
+        evtStatus.textContent = editId ? 'Sauvegarde...' : 'Création...';
+        var payload = {
+          voyage: {{ object.pk }},
+          timestamp: document.getElementById('evt-timestamp').value,
+          latitude: document.getElementById('evt-lat').value || null,
+          longitude: document.getElementById('evt-lng').value || null,
+          description: document.getElementById('evt-desc').value,
+          weather: document.getElementById('evt-weather').value
+        };
+        var method = editId ? 'PATCH' : 'POST';
+        var url = editId ? '/api/events/'+editId+'/' : '/api/events/';
+        fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+          body: JSON.stringify(payload)
+        }).then(function(resp){ if(!resp.ok) throw new Error('HTTP '+resp.status); return resp.json(); }).then(function(data){ evtStatus.textContent = editId ? 'Sauvé' : 'Ajouté'; // clear form + reset create button
+          document.getElementById('evt-desc').value = ''; document.getElementById('evt-weather').value = ''; document.getElementById('evt-lat').value = ''; document.getElementById('evt-lng').value = ''; document.getElementById('evt-timestamp').value = ''; delete evtCreateBtn.dataset.editId; evtCreateBtn.textContent = '➕ Ajouter'; fetchEvents();
+        }).catch(function(err){ console.log('create/edit error', err); evtStatus.textContent = 'Erreur'; });
+      });
+    }
+
+    // Draggable temporary marker for picking coords
+    var tempMarker = null;
+    function enableMarkerPlacement(){
+      if(tempMarker) return;
+      tempMarker = L.marker(map.getCenter(), {draggable:true}).addTo(map).bindPopup('Glissez pour positionner l\'événement').openPopup();
+      tempMarker.on('dragend', function(e){
+        var p = e.target.getLatLng();
+        document.getElementById('evt-lat').value = p.lat.toFixed(6);
+        document.getElementById('evt-lng').value = p.lng.toFixed(6);
+      });
+    }
+    // add a small control to enable marker placement
+    var placeControl = L.control({position:'topright'});
+    placeControl.onAdd = function(){
+      var el = L.DomUtil.create('div','place-marker'); el.style.background='#fff'; el.style.padding='6px'; el.style.cursor='pointer'; el.title='Placer un marqueur pour remplir lat/lng'; el.innerHTML='📍 Placer'; el.onclick = enableMarkerPlacement; return el;
+    };
+    placeControl.addTo(map);
   });
   </script>
 {% endblock %}
-  <label>Légende</label><input type="text" name="caption">
-  <button type="submit">Uploader</button>
-</form>
-</body></html>
+

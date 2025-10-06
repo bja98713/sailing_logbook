@@ -14,6 +14,7 @@ router.register(r'checklists', api.ChecklistViewSet)
 router.register(r'checklist-items', api.ChecklistItemViewSet)
 router.register(r'media', api.MediaAssetViewSet)
 router.register(r'consommables', api.ConsumableViewSet)
+router.register(r'events', api.VoyageEventViewSet)
 
 
 urlpatterns = [

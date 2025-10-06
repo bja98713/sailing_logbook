@@ -72,3 +72,22 @@ class ConsumableSerializer(serializers.ModelSerializer):
 class ConsumableViewSet(viewsets.ModelViewSet):
     queryset = Consumable.objects.all()
     serializer_class = ConsumableSerializer
+
+
+from .models import VoyageEvent
+
+class VoyageEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VoyageEvent
+        fields = '__all__'
+
+class VoyageEventViewSet(viewsets.ModelViewSet):
+    queryset = VoyageEvent.objects.all().select_related('voyage')
+    serializer_class = VoyageEventSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        voyage_id = self.request.query_params.get('voyage')
+        if voyage_id:
+            return qs.filter(voyage_id=voyage_id).order_by('timestamp')
+        return qs.order_by('-timestamp')
