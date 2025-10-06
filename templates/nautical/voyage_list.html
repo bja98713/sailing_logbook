@@ -7,12 +7,13 @@
   <p><a href="/">Accueil</a> · <a class="tag" href="/voyages/new/">+ Nouveau voyage</a></p>
   <table>
     <thead>
-      <tr><th>Date départ</th><th>Départ</th><th>Arrivée</th><th>Distance (NM)</th><th>Moteur (h)</th><th>Actions</th></tr>
+      <tr><th>Date départ</th><th>Carte</th><th>Départ</th><th>Arrivée</th><th>Distance (NM)</th><th>Moteur (h)</th><th>Actions</th></tr>
     </thead>
     <tbody>
       {% for v in object_list %}
         <tr>
           <td><a href="/voyages/{{ v.pk }}/">{{ v.start_datetime }}</a></td>
+          <td style="width:140px"><div id="map-thumb-{{ v.pk }}" style="height:80px;border:1px solid #ddd;border-radius:6px"></div></td>
           <td>{{ v.departure_port }}</td>
           <td>{{ v.arrival_port }}</td>
           <td>{{ v.distance_nm }}</td>
@@ -29,6 +30,45 @@
     </tbody>
   </table>
 {% endblock %}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    function tryParse(val){
+      if(!val) return null;
+      const m = val.match(/([-\d\.]+)\s*[,/]\s*([-\d\.]+)/);
+      if(m) return [parseFloat(m[1]), parseFloat(m[2])];
+      return null;
+    }
+    {% for v in object_list %}
+      (function(){
+        const el = document.getElementById('map-thumb-{{ v.pk }}');
+        if(!el) return;
+        const map = L.map(el).setView([0,0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+        // prefer numeric fields if available on the object
+        const s = (function(){
+          const lat = `{{ v.start_lat }}`;
+          const lng = `{{ v.start_lng }}`;
+          if(lat && lng){ return [parseFloat(lat), parseFloat(lng)]; }
+          return tryParse(`{{ v.start_position|escapejs }}`);
+        })();
+        const e = (function(){
+          const lat = `{{ v.end_lat }}`;
+          const lng = `{{ v.end_lng }}`;
+          if(lat && lng){ return [parseFloat(lat), parseFloat(lng)]; }
+          return tryParse(`{{ v.end_position|escapejs }}`);
+        })();
+        const bounds = [];
+        if(s){ const m = L.marker(s).addTo(map); bounds.push(s); }
+        if(e){ const m2 = L.marker(e).addTo(map); bounds.push(e); }
+        if(bounds.length) map.fitBounds(bounds, {padding:[10,10]});
+        else map.setView([0,0],2);
+      })();
+    {% endfor %}
+  });
+</script>
 
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Voyages</title>
 <link rel="stylesheet" href="/static/base.css"></head><body>

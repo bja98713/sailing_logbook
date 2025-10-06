@@ -1,5 +1,7 @@
 
 from django.db import models
+import math
+from decimal import Decimal, ROUND_HALF_UP
 from django.core.validators import FileExtensionValidator
 
 class CrewRole(models.TextChoices):
@@ -37,7 +39,14 @@ class LogbookEntry(models.Model):
     arrival_port = models.CharField('Port / Mouillage arrivée', max_length=120, blank=True)
     start_position = models.CharField('Position départ', max_length=80, blank=True, help_text="Ex: 17°32'S / 149°34'W")
     end_position = models.CharField('Position arrivée', max_length=80, blank=True)
+    # Numeric latitude/longitude for precise storage and calculations
+    start_lat = models.DecimalField('Latitude départ', max_digits=9, decimal_places=6, null=True, blank=True)
+    start_lng = models.DecimalField('Longitude départ', max_digits=9, decimal_places=6, null=True, blank=True)
+    end_lat = models.DecimalField('Latitude arrivée', max_digits=9, decimal_places=6, null=True, blank=True)
+    end_lng = models.DecimalField('Longitude arrivée', max_digits=9, decimal_places=6, null=True, blank=True)
     distance_nm = models.DecimalField('Distance parcourue (NM)', max_digits=7, decimal_places=2, null=True, blank=True)
+    # Duration of the trip in hours (computed from start/end datetime)
+    duration_hours = models.DecimalField('Durée du trajet (heures)', max_digits=6, decimal_places=2, null=True, blank=True)
     avg_speed_kn = models.DecimalField('Vitesse moyenne (kn)', max_digits=5, decimal_places=2, null=True, blank=True)
     weather = models.CharField('Conditions météo', max_length=120, blank=True)
     wind = models.CharField('Vent (dir/force)', max_length=80, blank=True)
@@ -58,6 +67,47 @@ class LogbookEntry(models.Model):
 
     def __str__(self):
         return f"{self.departure_port} → {self.arrival_port or '—'} ({self.start_datetime.date()})"
+
+    def save(self, *args, **kwargs):
+        """
+        If numeric start/end lat/lng are present, compute great-circle distance
+        and store it in `distance_nm` (nautical miles) rounded to 2 decimals.
+        """
+        try:
+            if self.start_lat is not None and self.start_lng is not None and self.end_lat is not None and self.end_lng is not None:
+                # haversine formula
+                lat1 = float(self.start_lat)
+                lon1 = float(self.start_lng)
+                lat2 = float(self.end_lat)
+                lon2 = float(self.end_lng)
+                # convert degrees to radians
+                rlat1 = math.radians(lat1)
+                rlon1 = math.radians(lon1)
+                rlat2 = math.radians(lat2)
+                rlon2 = math.radians(lon2)
+                dlat = rlat2 - rlat1
+                dlon = rlon2 - rlon1
+                a = math.sin(dlat/2)**2 + math.cos(rlat1) * math.cos(rlat2) * math.sin(dlon/2)**2
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                # Earth's radius in meters (mean)
+                R = 6371000.0
+                meters = R * c
+                # convert to nautical miles (1 NM = 1852 meters)
+                nm = meters / 1852.0
+                # round to 2 decimals using Decimal for consistent DB storage
+                self.distance_nm = Decimal(str(nm)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            # compute duration in hours if datetimes present
+            if self.start_datetime and self.end_datetime:
+                try:
+                    delta = (self.end_datetime - self.start_datetime).total_seconds() / 3600.0
+                    self.duration_hours = Decimal(str(delta)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                except Exception:
+                    pass
+        except Exception:
+            # if anything fails, skip auto-calculation and leave distance_nm as-is
+            pass
+
+        super().save(*args, **kwargs)
 
 class MaintenanceRecord(models.Model):
     date = models.DateField('Date intervention')

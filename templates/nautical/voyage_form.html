@@ -3,7 +3,11 @@
 {% block title %}Nouveau voyage — Logbook{% endblock %}
 
 {% block head_extra %}
-  <style>.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.full{grid-column:1/-1}.search-input{margin:6px 0}</style>
+  <style>.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.full{grid-column:1/-1}.search-input{margin:6px 0}
+  #map{height:320px;border:1px solid #ddd;border-radius:8px;margin-top:10px}
+  .map-controls{margin:8px 0}
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 {% endblock %}
 
 {% block content %}
@@ -12,13 +16,27 @@
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <div class="grid">
-      <div>{{ form.start_datetime.label_tag }} {{ form.start_datetime }}</div>
-      <div>{{ form.end_datetime.label_tag }} {{ form.end_datetime }}</div>
+  <div>{{ form.start_datetime.label_tag }} {{ form.start_datetime }}</div>
+  <div>{{ form.end_datetime.label_tag }} {{ form.end_datetime }}</div>
       <div>{{ form.departure_port.label_tag }} {{ form.departure_port }}</div>
       <div>{{ form.arrival_port.label_tag }} {{ form.arrival_port }}</div>
-      <div>{{ form.start_position.label_tag }} {{ form.start_position }}</div>
-      <div>{{ form.end_position.label_tag }} {{ form.end_position }}</div>
+      <div>
+        {{ form.start_position.label_tag }} {{ form.start_position }}
+        <button type="button" class="gps-btn" data-target="id_start_position">📍 Utiliser le GPS</button>
+      </div>
+      <div>
+        {{ form.end_position.label_tag }} {{ form.end_position }}
+        <button type="button" class="gps-btn" data-target="id_end_position">📍 Utiliser le GPS</button>
+      </div>
       <div>{{ form.distance_nm.label_tag }} {{ form.distance_nm }}</div>
+      <div>
+        <label for="id_duration_hours">Durée du trajet (heures)</label>
+        {{ form.duration_hours }}
+      </div>
+      <!-- Hidden numeric lat/lng fields (populated by map/GPS) -->
+      <div style="display:none">
+        {{ form.start_lat }} {{ form.start_lng }} {{ form.end_lat }} {{ form.end_lng }}
+      </div>
       <div>{{ form.avg_speed_kn.label_tag }} {{ form.avg_speed_kn }}</div>
       <div>{{ form.weather.label_tag }} {{ form.weather }}</div>
       <div>{{ form.wind.label_tag }} {{ form.wind }}</div>
@@ -33,6 +51,16 @@
         <label>Recherche équipage</label>
         <input class="search-input" type="text" placeholder="Filtrer les membres..." oninput="filterCrew(this.value)">
         {{ form.crew }}
+      </div>
+
+      <div class="full">
+        <label>Carte (choisir départ / arrivée)</label>
+        <div id="map"></div>
+        <div class="map-controls">
+          <button type="button" id="set-start-btn">Placer départ ici</button>
+          <button type="button" id="set-end-btn">Placer arrivée ici</button>
+          <button type="button" id="center-gps-btn">Centrer sur GPS</button>
+        </div>
       </div>
 
       <div class="full">{{ form.notes.label_tag }} {{ form.notes }}</div>
@@ -74,6 +102,297 @@
       for(const opt of select.options){ opt.style.display = opt.text.toLowerCase().includes(s)?'block':'none'; }
     }
   </script>
+  <script>
+    function toDMS(lat, lng){
+      function fmt(v, isLat){
+        const abs = Math.abs(v);
+        const deg = Math.floor(abs);
+        const minf = (abs - deg) * 60;
+        const min = Math.floor(minf);
+        const sec = Math.round((minf - min) * 60);
+        const dir = isLat ? (v>=0 ? "N" : "S") : (v>=0 ? "E" : "W");
+        return `${deg}°${min}'${sec}\" ${dir}`;
+      }
+      return `${fmt(lat, true)} / ${fmt(lng, false)}`;
+    }
+
+    function setPositionInput(targetId, coords){
+      const el = document.getElementById(targetId);
+      if(!el) return;
+      // prefer DMS format, fallback store decimal
+        el.value = toDMS(coords.latitude, coords.longitude);
+        // prefer DMS format in text field, but also set numeric lat/lng fields
+        if(targetId === 'id_start_position'){
+          const latEl = document.getElementById('id_start_lat');
+          const lngEl = document.getElementById('id_start_lng');
+          if(latEl) latEl.value = parseFloat(coords.latitude).toFixed(6);
+          if(lngEl) lngEl.value = parseFloat(coords.longitude).toFixed(6);
+        } else if(targetId === 'id_end_position'){
+          const latEl = document.getElementById('id_end_lat');
+          const lngEl = document.getElementById('id_end_lng');
+          if(latEl) latEl.value = parseFloat(coords.latitude).toFixed(6);
+          if(lngEl) lngEl.value = parseFloat(coords.longitude).toFixed(6);
+        }
+      // also set data attributes for decimal if needed
+      el.dataset.lat = coords.latitude;
+      el.dataset.lng = coords.longitude;
+    }
+
+    function onGpsClick(e){
+      const btn = e.currentTarget;
+      const target = btn.dataset.target;
+      if(!navigator.geolocation){
+        alert('Géolocalisation non disponible dans ce navigateur.');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '⌛ Obtention...';
+      navigator.geolocation.getCurrentPosition(function(pos){
+        setPositionInput(target, pos.coords);
+        btn.textContent = '📍 Utiliser le GPS';
+        btn.disabled = false;
+      }, function(err){
+        alert('Impossible d\'obtenir la position: ' + err.message);
+        btn.textContent = '📍 Utiliser le GPS';
+        btn.disabled = false;
+      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      for(const b of document.querySelectorAll('.gps-btn')) b.addEventListener('click', onGpsClick);
+      // optional: fill when focusing port fields (try to geolocate)
+      const depPort = document.getElementById('id_departure_port');
+      const arrPort = document.getElementById('id_arrival_port');
+      if(depPort){ depPort.addEventListener('dblclick', ()=> document.querySelector('.gps-btn[data-target="id_start_position"]').click()); }
+      if(arrPort){ arrPort.addEventListener('dblclick', ()=> document.querySelector('.gps-btn[data-target="id_end_position"]').click()); }
+    });
+  </script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    (function(){
+      const mapEl = document.getElementById('map');
+      if(!mapEl) return;
+      const map = L.map('map').setView([0,0], 2);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+  let startMarker = null;
+  let endMarker = null;
+  // polyline showing route between start and end
+  let routeLine = null;
+      let activePlacement = null; // 'start' or 'end'
+
+      function formatLatLng(latlng){
+        // return decimal with 6 decimals
+        return `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+      }
+
+      function updateInputFromMarker(marker, targetId){
+        if(!marker) return;
+        const latlng = marker.getLatLng();
+        const el = document.getElementById(targetId);
+        if(!el) return;
+        el.value = `${latlng.lat.toFixed(6)} / ${latlng.lng.toFixed(6)}`;
+        el.dataset.lat = latlng.lat;
+        el.dataset.lng = latlng.lng;
+          // also update numeric fields
+          if(targetId === 'id_start_position'){
+            const latEl = document.getElementById('id_start_lat');
+            const lngEl = document.getElementById('id_start_lng');
+            if(latEl) latEl.value = latlng.lat.toFixed(6);
+            if(lngEl) lngEl.value = latlng.lng.toFixed(6);
+          } else if(targetId === 'id_end_position'){
+            const latEl = document.getElementById('id_end_lat');
+            const lngEl = document.getElementById('id_end_lng');
+            if(latEl) latEl.value = latlng.lat.toFixed(6);
+            if(lngEl) lngEl.value = latlng.lng.toFixed(6);
+          }
+      // update distance in form (client-side feedback)
+      computeDistanceAndFill();
+      // update route polyline
+      updateRouteLine();
+      }
+
+      function placeMarker(type, latlng){
+        if(type === 'start'){
+          if(startMarker) startMarker.setLatLng(latlng);
+          else startMarker = L.marker(latlng, {draggable:true}).addTo(map).bindPopup('Départ').openPopup();
+          startMarker.on('dragend', ()=> updateInputFromMarker(startMarker, 'id_start_position'));
+          updateInputFromMarker(startMarker, 'id_start_position');
+        } else {
+          if(endMarker) endMarker.setLatLng(latlng);
+          else endMarker = L.marker(latlng, {draggable:true}).addTo(map).bindPopup('Arrivée').openPopup();
+          endMarker.on('dragend', ()=> updateInputFromMarker(endMarker, 'id_end_position'));
+          updateInputFromMarker(endMarker, 'id_end_position');
+        }
+        updateRouteLine();
+      }
+
+      function updateRouteLine(){
+        // remove existing line
+        if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
+        if(startMarker && endMarker){
+          const s = startMarker.getLatLng();
+          const e = endMarker.getLatLng();
+          routeLine = L.polyline([s, e], {color: 'blue', weight: 3, opacity: 0.7, dashArray: '6,6'}).addTo(map);
+          // fit bounds with some padding
+          const bounds = L.latLngBounds([s,e]);
+          map.fitBounds(bounds.pad(0.2));
+        }
+      }
+
+      // toggleable placement buttons
+      const setStartBtn = document.getElementById('set-start-btn');
+      const setEndBtn = document.getElementById('set-end-btn');
+      function clearPlacementButtons(){
+        activePlacement = null;
+        if(setStartBtn) setStartBtn.textContent = 'Placer départ ici';
+        if(setEndBtn) setEndBtn.textContent = 'Placer arrivée ici';
+      }
+
+      if(setStartBtn){
+        setStartBtn.addEventListener('click', function(){
+          if(activePlacement === 'start'){
+            clearPlacementButtons();
+            console.log('Placement départ annulé');
+            return;
+          }
+          activePlacement = 'start';
+          setStartBtn.textContent = 'Annuler placement départ';
+          if(setEndBtn) setEndBtn.textContent = 'Placer arrivée ici';
+          console.log('Mode placement: start');
+          alert('Mode placement départ activé — cliquez sur la carte pour placer le point.');
+        });
+      }
+      if(setEndBtn){
+        setEndBtn.addEventListener('click', function(){
+          if(activePlacement === 'end'){
+            clearPlacementButtons();
+            console.log('Placement arrivée annulé');
+            return;
+          }
+          activePlacement = 'end';
+          setEndBtn.textContent = 'Annuler placement arrivée';
+          if(setStartBtn) setStartBtn.textContent = 'Placer départ ici';
+          console.log('Mode placement: end');
+          alert('Mode placement arrivée activé — cliquez sur la carte pour placer le point.');
+        });
+      }
+
+      map.on('click', function(e){
+        console.log('Carte cliquée, activePlacement=', activePlacement, e.latlng);
+        if(activePlacement === 'start'){
+          placeMarker('start', e.latlng);
+          clearPlacementButtons();
+        } else if(activePlacement === 'end'){
+          placeMarker('end', e.latlng);
+          clearPlacementButtons();
+        }
+      });
+
+      function computeDistanceAndFill(){
+        const sLat = parseFloat(document.getElementById('id_start_lat')?.value);
+        const sLng = parseFloat(document.getElementById('id_start_lng')?.value);
+        const eLat = parseFloat(document.getElementById('id_end_lat')?.value);
+        const eLng = parseFloat(document.getElementById('id_end_lng')?.value);
+        if([sLat,sLng,eLat,eLng].some(v=>Number.isNaN(v))) return;
+        // haversine in JS
+        function toRad(v){ return v * Math.PI / 180; }
+        const R = 6371000.0;
+        const dLat = toRad(eLat - sLat);
+        const dLng = toRad(eLng - sLng);
+        const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(sLat))*Math.cos(toRad(eLat))*Math.sin(dLng/2)*Math.sin(dLng/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const meters = R * c;
+        const nm = meters / 1852.0;
+        const nmRounded = Math.round(nm * 100) / 100;
+        const distEl = document.getElementById('id_distance_nm');
+        if(distEl) distEl.value = nmRounded.toFixed(2);
+      }
+
+      function computeDurationAndFill(){
+        const s = document.getElementById('id_start_datetime')?.value;
+        const e = document.getElementById('id_end_datetime')?.value;
+        const durEl = document.getElementById('id_duration_hours');
+        if(!durEl) return;
+        if(!s || !e){ return; }
+        try{
+          const sd = new Date(s);
+          const ed = new Date(e);
+          if(isNaN(sd.getTime()) || isNaN(ed.getTime())) return;
+          const hours = (ed - sd) / (1000 * 60 * 60);
+          const rounded = Math.round(hours * 100) / 100;
+          durEl.value = rounded.toFixed(2);
+        }catch(err){ /* ignore */ }
+      }
+
+      // attach listeners to datetime inputs
+      const sdt = document.getElementById('id_start_datetime');
+      const edt = document.getElementById('id_end_datetime');
+      if(sdt) sdt.addEventListener('change', computeDurationAndFill);
+      if(edt) edt.addEventListener('change', computeDurationAndFill);
+      // also recompute on page load if values present
+      computeDurationAndFill();
+
+      document.getElementById('center-gps-btn').addEventListener('click', function(){
+        if(!navigator.geolocation){ alert('Géolocalisation non disponible.'); return; }
+        navigator.geolocation.getCurrentPosition(function(pos){
+          const latlng = [pos.coords.latitude, pos.coords.longitude];
+          map.setView(latlng, 13);
+        }, function(err){ alert('Impossible d\'obtenir la position: ' + err.message); }, {enableHighAccuracy:true});
+      });
+
+      // If user already has start_position or end_position values, try to parse and place markers
+      function tryParseAndPlace(id, type){
+        const el = document.getElementById(id);
+        if(!el || !el.value) return;
+        const m = el.value.match(/([\-\d\.]+)\s*[,\/]\s*([\-\d\.]+)/);
+        if(m){ placeMarker(type, L.latLng(parseFloat(m[1]), parseFloat(m[2]))); }
+        // prefer numeric fields if present
+        if(type === 'start'){
+          const latEl = document.getElementById('id_start_lat');
+          const lngEl = document.getElementById('id_start_lng');
+          if(latEl && latEl.value && lngEl && lngEl.value){
+            placeMarker(type, L.latLng(parseFloat(latEl.value), parseFloat(lngEl.value)));
+            return;
+          }
+        } else {
+          const latEl = document.getElementById('id_end_lat');
+          const lngEl = document.getElementById('id_end_lng');
+          if(latEl && latEl.value && lngEl && lngEl.value){
+            placeMarker(type, L.latLng(parseFloat(latEl.value), parseFloat(lngEl.value)));
+            return;
+          }
+        }
+      }
+      tryParseAndPlace('id_start_position', 'start');
+      tryParseAndPlace('id_end_position', 'end');
+
+      // integrate with GPS buttons: if they fill dataset.lat/dataset.lng, center map
+      const gpsButtons = document.querySelectorAll('.gps-btn');
+      for(const b of gpsButtons){
+        b.addEventListener('click', function(){
+          const target = b.dataset.target;
+          // after geolocation completes, input dataset.lat/lng will be set; poll for it briefly
+          setTimeout(function(){
+            const el = document.getElementById(target);
+            if(el && el.dataset.lat){
+              const lat = parseFloat(el.dataset.lat);
+              const lng = parseFloat(el.dataset.lng);
+              if(!isNaN(lat) && !isNaN(lng)){
+                map.setView([lat,lng], 13);
+                // if gps button targeted start/end, place marker
+                if(target === 'id_start_position') placeMarker('start', L.latLng(lat,lng));
+                if(target === 'id_end_position') placeMarker('end', L.latLng(lat,lng));
+              }
+            }
+          }, 700);
+        });
+      }
+    })();
+  </script>
 {% endblock %}
 
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Nouveau voyage</title>
@@ -88,8 +407,14 @@
     <div>{{ form.end_datetime.label_tag }} {{ form.end_datetime }}</div>
     <div>{{ form.departure_port.label_tag }} {{ form.departure_port }}</div>
     <div>{{ form.arrival_port.label_tag }} {{ form.arrival_port }}</div>
-    <div>{{ form.start_position.label_tag }} {{ form.start_position }}</div>
-    <div>{{ form.end_position.label_tag }} {{ form.end_position }}</div>
+    <div>
+      {{ form.start_position.label_tag }} {{ form.start_position }}
+      <button type="button" class="gps-btn" data-target="id_start_position">📍 Utiliser le GPS</button>
+    </div>
+    <div>
+      {{ form.end_position.label_tag }} {{ form.end_position }}
+      <button type="button" class="gps-btn" data-target="id_end_position">📍 Utiliser le GPS</button>
+    </div>
     <div>{{ form.distance_nm.label_tag }} {{ form.distance_nm }}</div>
     <div>{{ form.avg_speed_kn.label_tag }} {{ form.avg_speed_kn }}</div>
     <div>{{ form.weather.label_tag }} {{ form.weather }}</div>
