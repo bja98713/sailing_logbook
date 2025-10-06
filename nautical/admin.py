@@ -16,13 +16,20 @@ class MediaAssetInline(admin.TabularInline):
     model = models.MediaAsset
     extra = 0
 
+
+class VoyageEventInline(admin.TabularInline):
+    model = models.VoyageEvent
+    extra = 0
+    fields = ('timestamp', 'latitude', 'longitude', 'description', 'weather', 'distance_from_prev_nm', 'elapsed_hours_since_prev', 'avg_speed_since_prev_kn')
+    readonly_fields = ('distance_from_prev_nm', 'elapsed_hours_since_prev', 'avg_speed_since_prev_kn')
+
 @admin.register(models.LogbookEntry)
 class LogbookAdmin(admin.ModelAdmin):
     list_display = ('start_datetime', 'departure_port', 'arrival_port', 'distance_nm', 'engine_hours')
     list_filter = ('departure_port', 'arrival_port')
     search_fields = ('departure_port', 'arrival_port', 'notes')
     filter_horizontal = ('crew',)
-    inlines = [MaintenanceInline, MediaAssetInline]
+    inlines = [MaintenanceInline, MediaAssetInline, VoyageEventInline]
 
 @admin.register(models.MaintenanceRecord)
 class MaintenanceAdmin(admin.ModelAdmin):

@@ -265,3 +265,82 @@ class Chronology(models.Model):
     def __str__(self):
         t = f" {self.time}" if self.time else ''
         return f"{self.date}{t} — {self.performer}: {self.description[:60]}"
+
+
+class VoyageEvent(models.Model):
+    """An event or period that occurs during a voyage.
+
+    Each event stores a timestamp, an optional GPS position (lat/lng), a short
+    description, and optional weather/notes. The model will also store computed
+    values relative to the previous event in the same voyage: distance (NM)
+    from the previous event, elapsed time (hours) since previous event, and
+    average speed (knots) between the two points.
+    """
+    voyage = models.ForeignKey(LogbookEntry, on_delete=models.CASCADE, related_name='events', verbose_name='Voyage')
+    timestamp = models.DateTimeField('Date et heure')
+    latitude = models.DecimalField('Latitude', max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField('Longitude', max_digits=9, decimal_places=6, null=True, blank=True)
+    description = models.TextField('Détail de l\'événement')
+    weather = models.CharField('Conditions météo', max_length=120, blank=True)
+    notes = models.TextField('Remarques', blank=True)
+
+    # Computed relative to previous event in the same voyage
+    distance_from_prev_nm = models.DecimalField('Distance depuis précédent (NM)', max_digits=7, decimal_places=2, null=True, blank=True)
+    elapsed_hours_since_prev = models.DecimalField('Temps écoulé depuis précédent (heures)', max_digits=6, decimal_places=2, null=True, blank=True)
+    avg_speed_since_prev_kn = models.DecimalField('Vitesse moyenne depuis précédent (kn)', max_digits=6, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = "Événement de voyage"
+        verbose_name_plural = "Événements de voyage"
+
+    def __str__(self):
+        return f"{self.voyage} @ {self.timestamp} — {self.description[:40]}"
+
+    def save(self, *args, **kwargs):
+        # Compute distance/speed/elapsed time relative to the previous event
+        try:
+            prev = VoyageEvent.objects.filter(voyage=self.voyage, timestamp__lt=self.timestamp).order_by('-timestamp').first()
+            if prev and self.latitude is not None and self.longitude is not None and prev.latitude is not None and prev.longitude is not None:
+                # haversine (meters)
+                import math
+                def to_rad(x):
+                    return math.radians(float(x))
+                rlat1 = to_rad(prev.latitude)
+                rlon1 = to_rad(prev.longitude)
+                rlat2 = to_rad(self.latitude)
+                rlon2 = to_rad(self.longitude)
+                dlat = rlat2 - rlat1
+                dlon = rlon2 - rlon1
+                a = math.sin(dlat/2)**2 + math.cos(rlat1) * math.cos(rlat2) * math.sin(dlon/2)**2
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                R = 6371000.0
+                meters = R * c
+                nm = meters / 1852.0
+                from decimal import Decimal, ROUND_HALF_UP
+                self.distance_from_prev_nm = Decimal(str(nm)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                # elapsed hours
+                try:
+                    delta_hours = (self.timestamp - prev.timestamp).total_seconds() / 3600.0
+                    self.elapsed_hours_since_prev = Decimal(str(delta_hours)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                except Exception:
+                    self.elapsed_hours_since_prev = None
+                # avg speed (knots) = nm / hours
+                try:
+                    if self.elapsed_hours_since_prev and float(self.elapsed_hours_since_prev) > 0:
+                        avg_kn = float(self.distance_from_prev_nm) / float(self.elapsed_hours_since_prev)
+                        self.avg_speed_since_prev_kn = Decimal(str(avg_kn)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                    else:
+                        self.avg_speed_since_prev_kn = None
+                except Exception:
+                    self.avg_speed_since_prev_kn = None
+            else:
+                # No previous event or missing coords; clear computed values
+                self.distance_from_prev_nm = None
+                self.elapsed_hours_since_prev = None
+                self.avg_speed_since_prev_kn = None
+        except Exception:
+            # If any error happens, skip calculations
+            pass
+
+        super().save(*args, **kwargs)

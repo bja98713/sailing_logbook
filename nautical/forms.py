@@ -94,3 +94,19 @@ class ChronologyForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'rows': 4}),
             'action_realisee': forms.Textarea(attrs={'rows': 2}),
         }
+
+
+# Voyage event form
+from .models import VoyageEvent
+
+class VoyageEventForm(forms.ModelForm):
+    class Meta:
+        model = VoyageEvent
+        fields = ['timestamp', 'latitude', 'longitude', 'description', 'weather', 'notes']
+        widgets = {
+            'timestamp': DateTimeLocalInput(),
+            'latitude': forms.NumberInput(attrs={'step':'0.000001'}),
+            'longitude': forms.NumberInput(attrs={'step':'0.000001'}),
+            'description': forms.Textarea(attrs={'rows':3}),
+            'notes': forms.Textarea(attrs={'rows':2}),
+        }
