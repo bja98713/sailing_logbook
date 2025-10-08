@@ -174,7 +174,7 @@
     </div>
     <div class="info-item">
       <div class="info-label">Entrées de log</div>
-      <div class="info-value">{{ total_entries|default:0 }} entrées</div>
+      <div class="info-value">{{ entries_total_count|default:0 }} entrées</div>
     </div>
     {% if voyage_duration %}
     <div class="info-item">
@@ -196,7 +196,10 @@
   <a href="{% url 'export_voyage_pdf' voyage.pk %}" class="btn btn-info" target="_blank">📄 Export PDF</a>
   <a href="{% url 'voyage_log_update' voyage.pk %}" class="btn btn-secondary">✏️ Modifier voyage</a>
   {% if voyage.statut == 'preparation' %}
-  <a href="{% url 'voyage_log_delete' voyage.pk %}" class="btn btn-danger">🗑️ Supprimer</a>
+  <a href="{% url 'voyage_log_delete' voyage.pk %}"
+     class="btn btn-danger"
+     onclick="return confirm('Confirmer la suppression du livre de bord ? Vous pourrez encore annuler à l\'étape suivante.');"
+  >🗑️ Supprimer</a>
   {% endif %}
 </div>
 
@@ -211,6 +214,17 @@
 <!-- Onglet Timeline -->
 <div id="timeline" class="tab-content active">
   <h3>📋 Entrées du livre de bord</h3>
+  
+  <div style="display:flex; align-items:center; gap:12px; margin:8px 0 16px 0; color:#555; font-size:14px;">
+    <span>
+      Affichées: <strong>{{ entries_shown_count }}</strong> / <strong>{{ entries_total_count }}</strong>
+    </span>
+    {% if entries_truncated and not show_all %}
+      <a href="{% url 'voyage_log_detail' voyage.pk %}?all=1" class="btn btn-secondary" style="padding:6px 10px; font-size:12px;">Afficher tout</a>
+    {% elif show_all %}
+      <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-secondary" style="padding:6px 10px; font-size:12px;">Afficher moins</a>
+    {% endif %}
+  </div>
   
   {% if entries %}
     <div class="timeline">
@@ -276,6 +290,12 @@
         </div>
       {% endfor %}
     </div>
+    {% if entries_truncated and not show_all %}
+      <div style="margin-top:10px; color:#777; font-size:13px;">
+        … {{ entries_remaining }} entrées supplémentaires masquées.
+        <a href="{% url 'voyage_log_detail' voyage.pk %}?all=1" style="color:#007cba; text-decoration:none;">Afficher tout</a>
+      </div>
+    {% endif %}
   {% else %}
     <p style="text-align: center; color: #666; padding: 40px;">
       Aucune entrée dans le livre de bord.<br>

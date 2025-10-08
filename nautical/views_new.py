@@ -6,9 +6,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, Http404
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count
+from django.views.decorators.cache import cache_page
+from django.utils.http import http_date
+from django.utils.decorators import method_decorator
 
 # Import pour PDF
 from reportlab.lib.pagesizes import A4
@@ -26,6 +29,7 @@ from .forms_new import (
 )
 
 
+@method_decorator(cache_page(30), name='dispatch')
 class VoyageLogListView(ListView):
     """Liste de tous les livres de bord"""
     model = VoyageLogNew
@@ -34,7 +38,16 @@ class VoyageLogListView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = (
+            super()
+            .get_queryset()
+            .annotate(
+                total_entries=Count('entries'),
+                crew_count=Count('equipage'),
+                weather_count=Count('conditions_meteo'),
+                incidents_count=Count('incidents'),
+            )
+        )
         # Filtrage optionnel par statut
         statut = self.request.GET.get('statut')
         if statut:
@@ -48,12 +61,44 @@ class VoyageLogDetailView(DetailView):
     template_name = 'nautical/voyage_log_detail.html'
     context_object_name = 'voyage'
 
+    def get(self, request, *args, **kwargs):
+        # Intercepter les objets manquants et rediriger proprement vers la liste
+        try:
+            self.object = self.get_object()
+        except Http404:
+            messages.info(request, "Ce livre de bord n'existe pas ou a été supprimé.")
+            return redirect('voyage_log_list')
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        voyage = self.get_object()
+        # Optimiser les accès liés
+        voyage = (
+            VoyageLogNew.objects
+            .prefetch_related(
+                'entries',
+                'conditions_meteo',
+                'equipage',
+                'incidents'
+            )
+            .get(pk=self.object.pk)
+        )
         
-        # Récupérer toutes les entrées de log triées par date/heure
-        context['entries'] = voyage.entries.all().order_by('date', 'heure')
+        # Récupérer les entrées de log triées par date/heure (limiter par défaut)
+        all_entries_qs = voyage.entries.all().order_by('date', 'heure')
+        show_all = self.request.GET.get('all') == '1'
+        max_entries = 50
+        context['entries'] = list(all_entries_qs if show_all else all_entries_qs[:max_entries])
+        context['entries_total_count'] = all_entries_qs.count()
+        context['entries_shown_count'] = len(context['entries'])
+        context['entries_truncated'] = (not show_all) and (context['entries_total_count'] > max_entries)
+        context['show_all'] = show_all
+        # Pré-calcul utile pour le template (évite add:-x)
+        try:
+            context['entries_remaining'] = max(0, context['entries_total_count'] - context['entries_shown_count'])
+        except Exception:
+            context['entries_remaining'] = 0
         
         # Conditions météo
         context['weather_conditions'] = voyage.conditions_meteo.all().order_by('datetime')
@@ -64,20 +109,27 @@ class VoyageLogDetailView(DetailView):
         # Incidents
         context['incidents'] = voyage.incidents.all().order_by('datetime')
         
-        # Statistiques du voyage
-        entries = voyage.entries.all()
-        if entries.exists():
-            context['total_entries'] = entries.count()
-            first_entry = entries.first()
-            last_entry = entries.last()
+        # Statistiques du voyage (utilise les données préfetchées)
+        entries = list(context['entries'])
+        if entries:
+            context['total_entries'] = len(entries)
+            first_entry = entries[0]
+            last_entry = entries[-1]
             context['first_entry'] = first_entry
             context['last_entry'] = last_entry
             
             # Calculer la durée du voyage si on a des entrées
             if first_entry and last_entry:
-                start_datetime = timezone.datetime.combine(first_entry.date, first_entry.heure)
-                end_datetime = timezone.datetime.combine(last_entry.date, last_entry.heure)
-                context['voyage_duration'] = end_datetime - start_datetime
+                from django.utils.timezone import make_aware, get_current_timezone
+                tz = get_current_timezone()
+                start_naive = timezone.datetime.combine(first_entry.date, first_entry.heure)
+                end_naive = timezone.datetime.combine(last_entry.date, last_entry.heure)
+                try:
+                    start_dt = make_aware(start_naive, timezone=tz)
+                    end_dt = make_aware(end_naive, timezone=tz)
+                except Exception:
+                    start_dt, end_dt = start_naive, end_naive
+                context['voyage_duration'] = end_dt - start_dt
         
         return context
 
@@ -106,9 +158,13 @@ class VoyageLogUpdateView(UpdateView):
 
 def voyage_log_delete_view(request, pk):
     """
-    Supprimer un livre de bord (seulement si statut = 'preparation')
+    Supprimer un livre de bord (seulement si statut = 'preparation').
+    Si le voyage n'existe plus, on redirige proprement vers la liste.
     """
-    voyage = get_object_or_404(VoyageLogNew, pk=pk)
+    voyage = VoyageLogNew.objects.filter(pk=pk).first()
+    if voyage is None:
+        messages.info(request, "Ce livre de bord n'existe pas ou a déjà été supprimé.")
+        return redirect('voyage_log_list')
     
     # Vérifier que le voyage peut être supprimé
     if voyage.statut not in ['preparation']:
@@ -392,9 +448,15 @@ def voyage_dashboard(request):
     return render(request, 'nautical/voyage_dashboard.html', context)
 
 
+@cache_page(120)
 def export_voyage_pdf(request, pk):
     """Export d'un voyage complet en PDF sur une seule page"""
-    voyage = get_object_or_404(VoyageLogNew, pk=pk)
+    voyage = get_object_or_404(
+        VoyageLogNew.objects.prefetch_related(
+            'entries', 'conditions_meteo', 'equipage', 'incidents'
+        ),
+        pk=pk
+    )
     
     # Créer le buffer pour le PDF
     buffer = BytesIO()
@@ -488,8 +550,30 @@ def export_voyage_pdf(request, pk):
     # Entrées de log (résumé compact)
     story.append(Paragraph("📋 ENTRÉES DE LOG", subtitle_style))
     log_data = [['Date', 'Heure', 'Position', 'Log', 'Cap', 'Observations']]
-    for entry in voyage.entries.all().order_by('date', 'heure'):
+    entries_qs = voyage.entries.all().order_by('date', 'heure')
+    max_log_rows = 28
+    total_logs = entries_qs.count()
+    # Gestion des notes détaillées pour événements longs
+    footnotes = []
+    footnote_index = 1
+    for entry in entries_qs[:max_log_rows]:
         observations = []
+        truncated_ev = False
+        # Événements prioritaires dans la colonne Observations
+        if entry.evenements:
+            ev_full = (entry.evenements or '').strip().replace('\n', ' ')
+            ev_display = ev_full
+            if len(ev_full) > 90:
+                ev_display = ev_full[:87] + '...'
+                truncated_ev = True
+            # Ajouter marque de note si tronqué
+            if truncated_ev:
+                observations.append(f"{ev_display} [{footnote_index}]")
+                # Ajouter la note détaillée avec ancrage date/heure
+                footnotes.append(f"[{footnote_index}] {entry.date.strftime('%d/%m')} {entry.heure.strftime('%H:%M')} — {ev_full}")
+                footnote_index += 1
+            else:
+                observations.append(ev_display)
         if entry.allure:
             observations.append(f"Allure: {entry.allure}")
         if entry.voilure:
@@ -506,13 +590,15 @@ def export_voyage_pdf(request, pk):
         if entry.barometre:
             observations.append(f"Pression: {entry.barometre} hPa")
 
+        # Afficher plus de détails si pas de note (jusqu'à 3 éléments)
+        obs_limit = 2 if truncated_ev else 3
         log_data.append([
             entry.date.strftime('%d/%m'),
             entry.heure.strftime('%H:%M'),
             entry.position[:30] + '...' if entry.position and len(entry.position) > 30 else (entry.position or '-'),
             f"{entry.log_nautique:.1f}" if entry.log_nautique else '-',
             f"{entry.cap_compas}°" if entry.cap_compas else '-',
-            ' | '.join(observations[:2])  # Limiter à 2 observations
+            ' | '.join(observations[:obs_limit])  # Jusqu'à 3 sans note, 2 si note
         ])
     
     if len(log_data) > 1:
@@ -524,14 +610,39 @@ def export_voyage_pdf(request, pk):
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgreen),
         ]))
         story.append(log_table)
+        if total_logs > (len(log_data) - 1):
+            extra_logs = total_logs - (len(log_data) - 1)
+            story.append(Paragraph(f"… (+{extra_logs} entrées supplémentaires)", ParagraphStyle('Note', parent=styles['Normal'], fontSize=7, textColor=colors.grey)))
+        # Ajouter section notes si nécessaire (limiter pour rester sur 1 page)
+        if footnotes:
+            story.append(Spacer(1, 2*mm))
+            story.append(Paragraph("Notes détaillées", ParagraphStyle('FootTitle', parent=styles['Normal'], fontSize=7, textColor=colors.black)))
+            max_notes = 5
+            for note in footnotes[:max_notes]:
+                story.append(Paragraph(note, ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.grey)))
+            if len(footnotes) > max_notes:
+                story.append(Paragraph(f"… (+{len(footnotes) - max_notes} notes supplémentaires)", ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.grey)))
     else:
         story.append(Paragraph("Aucune entrée de log enregistrée", normal_style))
     story.append(Spacer(1, 3*mm))
     
+    # Résumé météo (situation générale si disponible)
+    try:
+        first_summary = next((w.situation_generale for w in voyage.conditions_meteo.all() if w.situation_generale), None)
+        if first_summary:
+            story.append(Paragraph("🛈 Résumé météo", subtitle_style))
+            story.append(Paragraph(first_summary, normal_style))
+            story.append(Spacer(1, 2*mm))
+    except Exception:
+        pass
+
     # Conditions météorologiques
     story.append(Paragraph("🌤️ CONDITIONS MÉTÉO", subtitle_style))
     weather_data = [['Date/Heure', 'Bulletin', 'Vent (jour)', 'Mer (jour)', 'Visibilité (jour)']]
-    for weather in voyage.conditions_meteo.all().order_by('datetime'):
+    wc_qs = voyage.conditions_meteo.all().order_by('datetime')
+    max_wc_rows = 8
+    total_wc = wc_qs.count()
+    for weather in wc_qs[:max_wc_rows]:
         weather_data.append([
             weather.datetime.strftime('%d/%m %H:%M'),
             weather.type_bulletin or '-',
@@ -549,6 +660,9 @@ def export_voyage_pdf(request, pk):
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightyellow),
         ]))
         story.append(weather_table)
+        if total_wc > (len(weather_data) - 1):
+            extra_wc = total_wc - (len(weather_data) - 1)
+            story.append(Paragraph(f"… (+{extra_wc} bulletins supplémentaires)", ParagraphStyle('Note', parent=styles['Normal'], fontSize=7, textColor=colors.grey)))
     else:
         story.append(Paragraph("Aucune condition météo enregistrée", normal_style))
     story.append(Spacer(1, 3*mm))
@@ -573,5 +687,13 @@ def export_voyage_pdf(request, pk):
     buffer.seek(0)
     response = HttpResponse(buffer.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="Livre_de_bord_{voyage.bateau}_{voyage.date_debut.strftime("%Y%m%d")}.pdf"'
+    # Caching headers
+    try:
+        ts = int(voyage.updated_at.timestamp())
+        response['ETag'] = f'W/"voyage-{voyage.pk}-{ts}"'
+        response['Last-Modified'] = http_date(ts)
+        response['Cache-Control'] = 'max-age=120, private'
+    except Exception:
+        pass
     
     return response

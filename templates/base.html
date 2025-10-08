@@ -29,12 +29,47 @@
       </nav>
     </header>
 
+    {% if messages %}
+    <div id="toast-messages" style="position:fixed; top:16px; right:16px; z-index:9999; display:flex; flex-direction:column; gap:8px;">
+      {% for message in messages %}
+        <div class="toast {{ message.tags }}" style="min-width:260px; max-width:420px; padding:10px 14px; border-radius:6px; color:white; box-shadow:0 2px 8px rgba(0,0,0,.15); display:flex; align-items:center; gap:10px;">
+          <span style="flex:1;">{{ message }}</span>
+          <button type="button" aria-label="Fermer" onclick="this.parentElement.remove()" style="background:transparent; border:none; color:inherit; font-weight:bold; cursor:pointer;">×</button>
+        </div>
+      {% endfor %}
+    </div>
+    <script>
+      // Basic coloring by Django message level
+      (function(){
+        const colors = {
+          'debug':'#6c757d',
+          'info':'#0d6efd',
+          'success':'#198754',
+          'warning':'#ffc107',
+          'error':'#dc3545'
+        };
+        document.querySelectorAll('#toast-messages .toast').forEach(el=>{
+          for (const key in colors){ if (el.classList.contains(key)) { el.style.background = colors[key]; break; } }
+        });
+        // Auto-hide after 4 seconds
+        setTimeout(()=>{
+          document.querySelectorAll('#toast-messages .toast').forEach(el=>{
+            el.style.transition = 'opacity .4s ease, transform .4s ease';
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-6px)';
+            setTimeout(()=>{ el.remove(); }, 450);
+          })
+        }, 4000);
+      })();
+    </script>
+    {% endif %}
+
     <main class="card">
       {% block content %}{% endblock %}
     </main>
 
     <footer style="margin-top:1rem;color:var(--muted);font-size:0.9rem">
-      &copy; {{ year }} — Logbook Nautique
+      &copy; {% now "Y" %} — Logbook Nautique - Jean-Ariel BRONSTEIN
     </footer>
   </div>
   {% block scripts %}{% endblock %}

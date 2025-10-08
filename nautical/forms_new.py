@@ -72,13 +72,8 @@ class VoyageLogForm(forms.ModelForm):
         obj = super().save(commit=False)
         # Forcer le nom du bateau
         obj.bateau = 'MANTA'
-        # Préremplir skipper si absent (champ masqué)
-        if not obj.skipper:
-            try:
-                last = type(obj).objects.exclude(skipper='').order_by('-created_at').first()
-                obj.skipper = last.skipper if last and last.skipper else 'Skipper'
-            except Exception:
-                obj.skipper = 'Skipper'
+        # Skipper constant
+        obj.skipper = 'Terry DYER'
         # Si aucune immatriculation fournie (champ masqué), conserver l'existant ou reprendre la dernière utilisée
         if not obj.immatriculation:
             try:

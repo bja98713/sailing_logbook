@@ -41,12 +41,30 @@ class VoyageLogNew(models.Model):
         verbose_name = "Livre de bord"
         verbose_name_plural = "Livres de bord"
         ordering = ['-date_debut']
+        indexes = [
+            models.Index(fields=['statut', 'date_debut']),
+            models.Index(fields=['date_debut']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=(models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=models.F('date_debut'))),
+                name='voyage_date_fin_after_debut_new'
+            )
+        ]
     
     def __str__(self):
         return f"{self.sujet_voyage} - {self.port_depart} → {self.port_arrivee} ({self.date_debut})"
     
     def get_absolute_url(self):
         return reverse('voyage_log_detail', kwargs={'pk': self.pk})
+
+    def save(self, *args, **kwargs):
+        # Garantir skipper constant
+        self.skipper = 'Terry DYER'
+        # Conserver le nom du bateau constant également
+        if not self.bateau:
+            self.bateau = 'MANTA'
+        super().save(*args, **kwargs)
 
 
 class WeatherConditionNew(models.Model):
@@ -91,6 +109,9 @@ class WeatherConditionNew(models.Model):
         verbose_name = "Condition météorologique"
         verbose_name_plural = "Conditions météorologiques"
         ordering = ['datetime']
+        indexes = [
+            models.Index(fields=['voyage', 'datetime']),
+        ]
     
     def __str__(self):
         return f"Météo {self.datetime.strftime('%d/%m %H:%M')} - {self.voyage.bateau}"
@@ -142,6 +163,10 @@ class LogEntryNew(models.Model):
         verbose_name = "Entrée de log"
         verbose_name_plural = "Entrées de log"
         ordering = ['date', 'heure']
+        indexes = [
+            models.Index(fields=['voyage', 'date', 'heure']),
+            models.Index(fields=['date', 'heure']),
+        ]
     
     def __str__(self):
         return f"{self.date.strftime('%d/%m')} {self.heure.strftime('%H:%M')} - {self.evenements[:50]}..."
@@ -187,6 +212,9 @@ class CrewMemberNew(models.Model):
         verbose_name = "Membre d'équipage"
         verbose_name_plural = "Membres d'équipage"
         ordering = ['role', 'nom']
+        indexes = [
+            models.Index(fields=['voyage', 'role', 'nom']),
+        ]
     
     def __str__(self):
         return f"{self.prenom} {self.nom} ({self.get_role_display()})"
@@ -237,6 +265,10 @@ class IncidentNew(models.Model):
         verbose_name = "Incident"
         verbose_name_plural = "Incidents"
         ordering = ['datetime']
+        indexes = [
+            models.Index(fields=['voyage', 'datetime']),
+            models.Index(fields=['type_incident']),
+        ]
     
     def __str__(self):
         return f"{self.get_type_incident_display()} - {self.datetime.strftime('%d/%m %H:%M')} - {self.get_gravite_display()}"
@@ -269,6 +301,9 @@ class SecurityInstruction(models.Model):
         verbose_name = "Consigne de sécurité"
         verbose_name_plural = "Consignes de sécurité"
         ordering = ['-priorite', 'titre']
+        indexes = [
+            models.Index(fields=['voyage', 'priorite']),
+        ]
     
     def __str__(self):
         return f"{self.titre} ({self.get_priorite_display()})"
