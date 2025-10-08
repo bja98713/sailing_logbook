@@ -75,6 +75,7 @@ class ConsumableViewSet(viewsets.ModelViewSet):
 
 
 from .models import VoyageEvent
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 class VoyageEventSerializer(serializers.ModelSerializer):
     class Meta:
@@ -84,6 +85,7 @@ class VoyageEventSerializer(serializers.ModelSerializer):
 class VoyageEventViewSet(viewsets.ModelViewSet):
     queryset = VoyageEvent.objects.all().select_related('voyage')
     serializer_class = VoyageEventSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()

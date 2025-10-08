@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}Livres de bord — Navigation{% endblock %}
+
+{% block content %}
+<style>
+  .voyage-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 4px solid #007cba;
+  }
+  .voyage-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .status-preparation { background: #fff3cd; color: #856404; }
+  .status-en-cours { background: #d4edda; color: #155724; }
+  .status-termine { background: #d1ecf1; color: #0c5460; }
+  .voyage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+  }
+  .btn-primary {
+    background: #007cba;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: 600;
+  }
+  .btn-primary:hover {
+    background: #005a87;
+    color: white;
+  }
+  .voyage-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+  }
+  .voyage-meta-item {
+    font-size: 14px;
+  }
+  .voyage-meta-label {
+    color: #666;
+    font-weight: 600;
+  }
+  .filter-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .filter-tab {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    background: white;
+    text-decoration: none;
+    color: #666;
+    border-radius: 4px;
+  }
+  .filter-tab.active {
+    background: #007cba;
+    color: white;
+    border-color: #007cba;
+  }
+</style>
+
+<div class="voyage-header">
+  <h2>📚 Livres de bord</h2>
+  <a href="{% url 'voyage_log_create' %}" class="btn-primary">+ Nouveau voyage</a>
+</div>
+
+<!-- Filtres par statut -->
+<div class="filter-tabs">
+  <a href="?statut=" class="filter-tab {% if not request.GET.statut %}active{% endif %}">
+    Tous les voyages
+  </a>
+  <a href="?statut=preparation" class="filter-tab {% if request.GET.statut == 'preparation' %}active{% endif %}">
+    En préparation
+  </a>
+  <a href="?statut=en_cours" class="filter-tab {% if request.GET.statut == 'en_cours' %}active{% endif %}">
+    En cours
+  </a>
+  <a href="?statut=termine" class="filter-tab {% if request.GET.statut == 'termine' %}active{% endif %}">
+    Terminés
+  </a>
+</div>
+
+{% if voyages %}
+  {% for voyage in voyages %}
+    <div class="voyage-card">
+      <div style="display: flex; justify-content: space-between; align-items: start;">
+        <div>
+          <h3 style="margin: 0 0 10px 0;">
+            <a href="{% url 'voyage_log_detail' voyage.pk %}" style="color: #007cba; text-decoration: none;">
+              🌴 {{ voyage.sujet_voyage }}
+            </a>
+          </h3>
+          <p style="color: #666; margin: 0;">
+            🚢 {{ voyage.bateau }} • {{ voyage.port_depart }} → {{ voyage.port_arrivee|default:"En cours" }}
+          </p>
+        </div>
+        <span class="voyage-status status-{{ voyage.statut }}">
+          {{ voyage.get_statut_display }}
+        </span>
+      </div>
+      
+      <div class="voyage-meta">
+        <div class="voyage-meta-item">
+          <div class="voyage-meta-label">Skipper</div>
+          <div>{{ voyage.skipper }}</div>
+        </div>
+        <div class="voyage-meta-item">
+          <div class="voyage-meta-label">Date de début</div>
+          <div>{{ voyage.date_debut|date:"d/m/Y" }}</div>
+        </div>
+        {% if voyage.date_fin %}
+        <div class="voyage-meta-item">
+          <div class="voyage-meta-label">Date de fin</div>
+          <div>{{ voyage.date_fin|date:"d/m/Y" }}</div>
+        </div>
+        {% endif %}
+        <div class="voyage-meta-item">
+          <div class="voyage-meta-label">Entrées de log</div>
+          <div>{{ voyage.entries.count }} entrées</div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <a href="{% url 'voyage_log_detail' voyage.pk %}" style="color: #007cba; text-decoration: none; margin-right: 20px;">
+          📖 Voir le livre
+        </a>
+        {% if voyage.statut == 'en_cours' %}
+        <a href="{% url 'voyage_log_live' voyage.pk %}" style="color: #28a745; text-decoration: none; margin-right: 20px;">
+          🔴 Live
+        </a>
+        {% endif %}
+        <a href="{% url 'voyage_log_update' voyage.pk %}" style="color: #666; text-decoration: none; margin-right: 20px;">
+          ✏️ Modifier
+        </a>
+        <a href="{% url 'export_voyage_pdf' voyage.pk %}" style="color: #17a2b8; text-decoration: none; margin-right: 20px;" target="_blank">
+          📄 PDF
+        </a>
+        {% if voyage.statut == 'preparation' %}
+        <a href="{% url 'voyage_log_delete' voyage.pk %}" style="color: #dc3545; text-decoration: none;">
+          🗑️ Supprimer
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+    <div style="text-align: center; margin-top: 30px;">
+      <div style="display: inline-block;">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" 
+             style="padding: 8px 12px; margin: 0 5px; border: 1px solid #ddd; text-decoration: none; color: #007cba;">
+            ← Précédent
+          </a>
+        {% endif %}
+        
+        <span style="padding: 8px 12px; margin: 0 5px;">
+          Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if request.GET.statut %}&statut={{ request.GET.statut }}{% endif %}" 
+             style="padding: 8px 12px; margin: 0 5px; border: 1px solid #ddd; text-decoration: none; color: #007cba;">
+            Suivant →
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+{% else %}
+  <div style="text-align: center; padding: 60px 20px; color: #666;">
+    <h3>Aucun livre de bord</h3>
+    <p>Créez votre premier livre de bord pour commencer à enregistrer vos voyages.</p>
+    <a href="{% url 'voyage_log_create' %}" class="btn-primary">+ Créer le premier voyage</a>
+  </div>
+{% endif %}
+
+{% endblock %}

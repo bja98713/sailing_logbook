@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+  .delete-container {
+    max-width: 600px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  .warning-box {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 20px;
+    border-radius: 6px;
+    margin: 20px 0;
+  }
+  .danger-box {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 20px;
+    border-radius: 6px;
+    margin: 20px 0;
+  }
+  .voyage-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    margin: 20px 0;
+  }
+  .voyage-info h3 {
+    margin: 0 0 15px 0;
+    color: #495057;
+  }
+  .voyage-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+  }
+  .meta-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 12px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .meta-value {
+    color: #495057;
+  }
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 15px;
+  }
+  .btn-danger {
+    background: #dc3545;
+    color: white;
+  }
+  .btn-danger:hover {
+    background: #c82333;
+    color: white;
+  }
+  .btn-secondary {
+    background: #6c757d;
+    color: white;
+  }
+  .btn-secondary:hover {
+    background: #5a6268;
+    color: white;
+  }
+  .actions {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+  }
+</style>
+
+<div class="delete-container">
+  <h2>🗑️ {{ title }}</h2>
+  
+  {% if voyage.statut != 'preparation' %}
+    <!-- Voyage ne peut pas être supprimé -->
+    <div class="danger-box">
+      <h4>❌ Suppression impossible</h4>
+      <p>Ce voyage ne peut pas être supprimé car son statut est : <strong>{{ voyage.get_statut_display }}</strong></p>
+      <p>Seuls les voyages ayant le statut <strong>"En préparation"</strong> peuvent être supprimés.</p>
+    </div>
+    
+    <div class="actions">
+      <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-secondary">
+        ← Retour au voyage
+      </a>
+    </div>
+  {% else %}
+    <!-- Voyage peut être supprimé -->
+    <div class="warning-box">
+      <h4>⚠️ Attention</h4>
+      <p>Vous êtes sur le point de supprimer définitivement ce livre de bord.</p>
+      <p><strong>Cette action est irréversible !</strong></p>
+    </div>
+    
+    <div class="voyage-info">
+      <h3>📚 Informations du voyage à supprimer</h3>
+      <div class="voyage-meta">
+        {% if voyage.sujet_voyage %}
+        <div class="meta-item">
+          <div class="meta-label">Sujet du voyage</div>
+          <div class="meta-value">{{ voyage.sujet_voyage }}</div>
+        </div>
+        {% endif %}
+        
+        <div class="meta-item">
+          <div class="meta-label">Bateau</div>
+          <div class="meta-value">{{ voyage.bateau }}</div>
+        </div>
+        
+        <div class="meta-item">
+          <div class="meta-label">Skipper</div>
+          <div class="meta-value">{{ voyage.skipper }}</div>
+        </div>
+        
+        <div class="meta-item">
+          <div class="meta-label">Route</div>
+          <div class="meta-value">{{ voyage.port_depart }} → {{ voyage.port_arrivee|default:"En cours" }}</div>
+        </div>
+        
+        <div class="meta-item">
+          <div class="meta-label">Date de début</div>
+          <div class="meta-value">{{ voyage.date_debut|date:"d/m/Y" }}</div>
+        </div>
+        
+        <div class="meta-item">
+          <div class="meta-label">Statut</div>
+          <div class="meta-value">{{ voyage.get_statut_display }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="danger-box">
+      <h4>🗂️ Données qui seront supprimées</h4>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li><strong>{{ voyage.entries.count }}</strong> entrées de log</li>
+        <li><strong>{{ voyage.equipage.count }}</strong> membres d'équipage</li>
+        <li><strong>{{ voyage.conditions_meteo.count }}</strong> bulletins météo</li>
+        <li><strong>{{ voyage.incidents.count }}</strong> incidents signalés</li>
+        <li>Toutes les données associées au voyage</li>
+      </ul>
+    </div>
+    
+    <form method="post">
+      {% csrf_token %}
+      <div class="actions">
+        <button type="submit" class="btn btn-danger">
+          🗑️ Confirmer la suppression
+        </button>
+        <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-secondary">
+          Annuler
+        </a>
+      </div>
+    </form>
+    
+    <div style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 6px; font-size: 13px;">
+      <strong>💡 Alternative :</strong> Si vous ne voulez plus voir ce voyage dans la liste active, 
+      vous pouvez modifier son statut vers "Terminé" au lieu de le supprimer.
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

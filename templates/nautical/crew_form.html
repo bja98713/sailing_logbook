@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - {{ voyage.bateau }}{% endblock %}
+
+{% block content %}
+<style>
+  .form-container {
+    max-width: 700px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 25px;
+  }
+  .form-field {
+    display: flex;
+    flex-direction: column;
+  }
+  .form-field.full-width {
+    grid-column: 1/-1;
+  }
+  .form-field label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .form-field input, .form-field select {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+  }
+  .form-field input:focus, .form-field select:focus {
+    outline: none;
+    border-color: #007cba;
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
+  }
+  .form-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+  }
+  .form-section h3 {
+    margin: 0 0 15px 0;
+    color: #007cba;
+    font-size: 16px;
+  }
+  .form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+  }
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: #007cba; color: white; }
+  .btn-primary:hover { background: #005a87; }
+  .btn-secondary { background: #6c757d; color: white; }
+  .btn-secondary:hover { background: #545b62; }
+  .voyage-header {
+    background: #007cba;
+    color: white;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+  }
+  .voyage-header h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .voyage-header p {
+    margin: 5px 0 0 0;
+    opacity: 0.9;
+  }
+</style>
+
+<div class="voyage-header">
+  <h2>🚢 {{ voyage.bateau }} - {{ title }}</h2>
+  <p>{{ voyage.port_depart }} → {{ voyage.port_arrivee|default:"En cours" }}</p>
+</div>
+
+<div class="form-container">
+  <form method="post">
+    {% csrf_token %}
+    
+    <!-- Section Choix du membre -->
+    <div class="form-section">
+      <h3>🔍 Choisir un membre d'équipage</h3>
+      <div class="form-field full-width">
+        {{ form.existing_member.label_tag }}
+        {{ form.existing_member }}
+        <small style="color: #666; margin-top: 5px;">
+          Si la personne existe déjà, sélectionnez-la dans cette liste. Sinon, laissez vide et remplissez les champs ci-dessous.
+        </small>
+      </div>
+    </div>
+    
+    <!-- Section Informations personnelles (nouveau membre) -->
+    <div class="form-section" id="new-member-section">
+      <h3>👤 Nouveau membre d'équipage</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.prenom.label_tag }}
+          {{ form.prenom }}
+        </div>
+        <div class="form-field">
+          {{ form.nom.label_tag }}
+          {{ form.nom }}
+        </div>
+        <div class="form-field full-width">
+          {{ form.role.label_tag }}
+          {{ form.role }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section Contact d'urgence -->
+    <div class="form-section">
+      <h3>🚨 Contact d'urgence</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.contact_nom.label_tag }}
+          {{ form.contact_nom }}
+        </div>
+        <div class="form-field">
+          {{ form.contact_telephone.label_tag }}
+          {{ form.contact_telephone }}
+        </div>
+        <div class="form-field full-width">
+          {{ form.contact_relation.label_tag }}
+          {{ form.contact_relation }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section Dates de participation -->
+    <div class="form-section">
+      <h3>📅 Dates de participation</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.date_embarquement.label_tag }}
+          {{ form.date_embarquement }}
+        </div>
+        <div class="form-field">
+          {{ form.date_debarquement.label_tag }}
+          {{ form.date_debarquement }}
+        </div>
+      </div>
+      <small style="color: #666; font-size: 12px;">
+        Laissez vide la date de débarquement si la personne reste pour tout le voyage
+      </small>
+    </div>
+    
+    <div class="form-actions">
+      <div>
+        <button type="submit" class="btn btn-primary">
+          👥 Ajouter à l'équipage
+        </button>
+        <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-secondary">Annuler</a>
+      </div>
+      
+      <div style="color: #666; font-size: 12px;">
+        📋 Le contact d'urgence est recommandé
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const existingMemberSelect = document.getElementById('existing_member');
+  const newMemberSection = document.getElementById('new-member-section');
+  const contactSection = document.querySelector('.form-section:nth-of-type(3)'); // Section contact
+  const newNom = document.getElementById('new_nom');
+  const newPrenom = document.getElementById('new_prenom');
+  const newTelephone = document.getElementById('new_telephone');
+  
+  function toggleSections() {
+    if (existingMemberSelect.value) {
+      // Membre existant sélectionné
+      const selectedText = existingMemberSelect.options[existingMemberSelect.selectedIndex].text;
+      
+      // Pré-remplir les champs nom/prénom à partir du texte sélectionné
+      const nameParts = selectedText.split(' ');
+      if (nameParts.length >= 2) {
+        newPrenom.value = nameParts.slice(0, -1).join(' ');
+        newNom.value = nameParts[nameParts.length - 1];
+      } else {
+        newNom.value = selectedText;
+        newPrenom.value = '';
+      }
+      
+      // Griser les sections mais garder les valeurs
+      newMemberSection.style.opacity = '0.7';
+      document.querySelectorAll('#new-member-section input, #new-member-section select').forEach(input => {
+        if (input.id === 'new_nom' || input.id === 'new_prenom') {
+          input.style.backgroundColor = '#f8f9fa';
+          input.readOnly = true;
+        }
+      });
+      
+      // Masquer la section contact pour membre existant (infos déjà connues)
+      contactSection.style.display = 'none';
+      
+    } else {
+      // Nouveau membre
+      newMemberSection.style.opacity = '1';
+      document.querySelectorAll('#new-member-section input, #new-member-section select').forEach(input => {
+        input.style.backgroundColor = 'white';
+        input.readOnly = false;
+      });
+      contactSection.style.display = 'block';
+      
+      // Vider les champs
+      newNom.value = '';
+      newPrenom.value = '';
+    }
+  }
+  
+  // Appliquer au changement
+  existingMemberSelect.addEventListener('change', toggleSections);
+  
+  // État initial
+  toggleSections();
+  
+  // Remplir automatiquement les champs de date avec la date du jour
+  function getLocalDate() {
+    const now = new Date();
+    const localTime = new Date(now.getTime() - (10 * 60 * 60 * 1000));
+    return localTime;
+  }
+  
+  const embarquementInput = document.querySelector('input[name="date_embarquement"]');
+  if (embarquementInput && !embarquementInput.value) {
+    const localDate = getLocalDate();
+    const day = String(localDate.getUTCDate()).padStart(2, '0');
+    const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+    const year = localDate.getUTCFullYear();
+    embarquementInput.value = `${day}/${month}/${year}`;
+  }
+});
+</script>
+{% endblock %}

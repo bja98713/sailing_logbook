@@ -1,0 +1,335 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ voyage.sujet_voyage }} - Mode Live{% endblock %}
+
+{% block content %}
+<style>
+  .live-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    position: relative;
+  }
+  .live-indicator {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255,255,255,0.2);
+    padding: 8px 15px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+  }
+  .action-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-decoration: none;
+    color: #333;
+    transition: transform 0.2s;
+  }
+  .action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    text-decoration: none;
+    color: #333;
+  }
+  .action-icon {
+    font-size: 2em;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .live-timeline {
+    background: white;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .timeline-item {
+    display: flex;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee;
+  }
+  .timeline-item:last-child {
+    border-bottom: none;
+  }
+  .timeline-time {
+    min-width: 120px;
+    font-weight: 600;
+    color: #28a745;
+    font-family: 'Courier New', monospace;
+  }
+  .timeline-content {
+    flex: 1;
+  }
+  .timeline-event {
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .timeline-details {
+    color: #666;
+    font-size: 14px;
+  }
+  .quick-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .form-row {
+    display: flex;
+    gap: 10px;
+    align-items: end;
+    flex-wrap: wrap;
+  }
+  .form-field {
+    flex: 1;
+    min-width: 150px;
+  }
+  .form-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+  .form-field input, .form-field textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  .btn-live {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-live:hover {
+    background: #218838;
+  }
+  .status-indicators {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+  }
+  .status-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .status-value {
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #28a745;
+    display: block;
+  }
+  .status-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    margin-top: 5px;
+  }
+</style>
+
+<div class="live-header">
+  <div class="live-indicator">
+    <div class="live-dot"></div>
+    <span>LIVE</span>
+  </div>
+  <h1 style="margin: 0;">🌴 {{ voyage.sujet_voyage }}</h1>
+  <p style="margin: 10px 0 0 0; opacity: 0.9;">
+    🚢 {{ voyage.bateau }} • {{ voyage.skipper }} • {{ voyage.port_depart }} → {{ voyage.port_arrivee|default:"En cours" }}
+  </p>
+</div>
+
+<!-- Indicateurs de statut -->
+<div class="status-indicators">
+  <div class="status-card">
+    <span class="status-value">{{ entries_count }}</span>
+    <div class="status-label">Entrées de log</div>
+  </div>
+  <div class="status-card">
+    <span class="status-value">{{ crew_count }}</span>
+    <div class="status-label">Équipage</div>
+  </div>
+  <div class="status-card">
+    <span class="status-value">{{ weather_count }}</span>
+    <div class="status-label">Bulletins météo</div>
+  </div>
+  <div class="status-card">
+    <span class="status-value">{{ voyage.get_statut_display }}</span>
+    <div class="status-label">Statut</div>
+  </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="quick-actions">
+  <a href="{% url 'add_log_entry' voyage.pk %}" class="action-card">
+    <span class="action-icon">📝</span>
+    <div><strong>Nouvelle entrée</strong></div>
+    <small>Ajouter un événement</small>
+  </a>
+  
+  <a href="{% url 'add_weather_condition' voyage.pk %}" class="action-card">
+    <span class="action-icon">🌤️</span>
+    <div><strong>Météo</strong></div>
+    <small>Bulletin météorologique</small>
+  </a>
+  
+  <a href="{% url 'add_crew_member' voyage.pk %}" class="action-card">
+    <span class="action-icon">👥</span>
+    <div><strong>Équipage</strong></div>
+    <small>Ajouter un membre</small>
+  </a>
+  
+  <a href="{% url 'add_incident' voyage.pk %}" class="action-card">
+    <span class="action-icon">⚠️</span>
+    <div><strong>Incident</strong></div>
+    <small>Signaler un problème</small>
+  </a>
+</div>
+
+<!-- Formulaire de saisie rapide -->
+<div class="quick-form">
+  <h3 style="margin: 0 0 15px 0;">⚡ Saisie rapide</h3>
+  <form method="post" action="{% url 'add_log_entry' voyage.pk %}">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="form-field">
+        <label>Heure</label>
+        <input type="time" name="heure" value="{{ current_time }}" required>
+      </div>
+      <div class="form-field" style="flex: 3;">
+        <label>Événement</label>
+        <input type="text" name="evenements" placeholder="Que se passe-t-il ?" required>
+      </div>
+      <div class="form-field">
+        <label>Position (optionnel)</label>
+        <input type="text" name="position" placeholder="17°35'S / 149°36'W">
+      </div>
+      <div class="form-field" style="flex: 0;">
+        <button type="submit" class="btn-live">Ajouter</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- Timeline des dernières entrées -->
+<div class="live-timeline">
+  <h3 style="margin: 0 0 20px 0;">📋 Dernières entrées</h3>
+  
+  {% if recent_entries %}
+    {% for entry in recent_entries %}
+      <div class="timeline-item">
+        <div class="timeline-time">
+          {{ entry.date|date:"d/m" }}<br>
+          {{ entry.heure|time:"H:i" }}
+        </div>
+        <div class="timeline-content">
+          <div class="timeline-event">{{ entry.evenements }}</div>
+          {% if entry.position or entry.vent_force or entry.allure %}
+            <div class="timeline-details">
+              {% if entry.position %}📍 {{ entry.position }}{% endif %}
+              {% if entry.vent_force %}🌬️ {{ entry.vent_force }}{% if entry.vent_direction %} {{ entry.vent_direction }}{% endif %}{% endif %}
+              {% if entry.allure %}⛵ {{ entry.get_allure_display }}{% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div style="text-align: center; padding: 40px; color: #666;">
+      <p>Aucune entrée pour le moment</p>
+      <small>Utilisez la saisie rapide ci-dessus ou cliquez sur "Nouvelle entrée"</small>
+    </div>
+  {% endif %}
+</div>
+
+<div style="margin-top: 30px; text-align: center;">
+  <a href="{% url 'voyage_log_detail' voyage.pk %}" style="color: #007cba; text-decoration: none; margin-right: 20px;">
+    📖 Voir le livre complet
+  </a>
+  <a href="{% url 'voyage_log_list' %}" style="color: #666; text-decoration: none;">
+    ← Retour aux voyages
+  </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh toutes les 30 secondes en mode live
+let autoRefresh = true;
+let refreshInterval;
+
+function startAutoRefresh() {
+  if (autoRefresh) {
+    refreshInterval = setInterval(() => {
+      // Recharger seulement la timeline
+      fetch(window.location.href)
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newTimeline = doc.querySelector('.live-timeline');
+          if (newTimeline) {
+            document.querySelector('.live-timeline').innerHTML = newTimeline.innerHTML;
+          }
+        })
+        .catch(console.error);
+    }, 30000); // 30 secondes
+  }
+}
+
+// Démarrer l'auto-refresh
+startAutoRefresh();
+
+// Arrêter l'auto-refresh si l'utilisateur quitte la page
+window.addEventListener('beforeunload', () => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
+});
+
+// Mettre l'heure actuelle par défaut
+document.addEventListener('DOMContentLoaded', function() {
+  const timeInput = document.querySelector('input[name="heure"]');
+  if (timeInput && !timeInput.value) {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    timeInput.value = `${hours}:${minutes}`;
+  }
+});
+</script>
+{% endblock %}

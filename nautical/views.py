@@ -7,11 +7,14 @@ from .models import LogbookEntry, CrewMember, MaintenanceRecord, Checklist
 from .forms import LogbookEntryForm, MediaAssetForm
 from django.views.generic.edit import UpdateView, DeleteView  # ✅ AJOUT
 from django.forms import inlineformset_factory
+
+# Import des nouvelles vues pour le système de livre de bord
+# Importation sélective pour éviter les conflits de modèles
 from django.urls import reverse, reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView
 from django.views.generic.edit import UpdateView, DeleteView
 from django.urls import reverse, reverse_lazy
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
 from urllib.parse import urlencode
 import csv
@@ -19,6 +22,8 @@ from io import BytesIO
 from django.conf import settings
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+
+# Les nouvelles vues sont maintenant importées directement dans urls.py pour éviter les conflits
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -42,48 +47,7 @@ def home(request):
         'maintenance_count': MaintenanceRecord.objects.count(),
     })
 
-class LogbookListView(ListView):
-    model = LogbookEntry
-    template_name = 'nautical/voyage_list.html'
-    paginate_by = 20
 
-class LogbookDetailView(DetailView):
-    model = LogbookEntry
-    template_name = 'nautical/voyage_detail.html'
-
-class LogbookCreateView(CreateView):
-    model = LogbookEntry
-    form_class = LogbookEntryForm
-    success_url = reverse_lazy('voyage_list')
-    template_name = 'nautical/voyage_form.html'
-
-    def get_context_data(self, **kwargs):
-        data = super().get_context_data(**kwargs)
-        if self.request.POST:
-            data['maintenance_formset'] = MaintenanceFormSet(self.request.POST)
-        else:
-            data['maintenance_formset'] = MaintenanceFormSet()
-        return data
-
-    def form_valid(self, form):
-        context = self.get_context_data()
-        formset = context['maintenance_formset']
-        if formset.is_valid():
-            response = super().form_valid(form)  # self.object est créé
-            formset.instance = self.object
-            formset.save()
-            return response
-        return self.form_invalid(form)
-
-class MediaUploadView(View):
-    def post(self, request, pk):
-        voyage = get_object_or_404(LogbookEntry, pk=pk)
-        form = MediaAssetForm(request.POST, request.FILES)
-        if form.is_valid():
-            asset = form.save(commit=False)
-            asset.voyage = voyage
-            asset.save()
-        return redirect('voyage_detail', pk=pk)
 
 class CrewListView(ListView):
     model = CrewMember
@@ -154,36 +118,7 @@ class ChecklistDeleteView(DeleteView):
     template_name = 'nautical/checklist_confirm_delete.html'
     success_url = reverse_lazy('checklist_list')
 
-class LogbookUpdateView(UpdateView):
-    model = LogbookEntry
-    form_class = LogbookEntryForm
-    template_name = 'nautical/voyage_form.html'
 
-    def get_success_url(self):
-        return reverse('voyage_detail', args=[self.object.pk])
-
-    def get_context_data(self, **kwargs):
-        data = super().get_context_data(**kwargs)
-        if self.request.POST:
-            data['maintenance_formset'] = MaintenanceFormSet(self.request.POST, instance=self.object)
-        else:
-            data['maintenance_formset'] = MaintenanceFormSet(instance=self.object)
-        return data
-
-    def form_valid(self, form):
-        context = self.get_context_data()
-        formset = context['maintenance_formset']
-        if formset.is_valid():
-            response = super().form_valid(form)
-            formset.instance = self.object
-            formset.save()
-            return response
-        return self.form_invalid(form)
-
-class LogbookDeleteView(DeleteView):
-    model = LogbookEntry
-    template_name = 'nautical/voyage_confirm_delete.html'
-    success_url = reverse_lazy('voyage_list')
 
 from .forms import ConsumableForm
 from .forms import ChronologyForm

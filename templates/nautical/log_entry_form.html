@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - {{ voyage.bateau }}{% endblock %}
+
+{% block content %}
+<style>
+  .form-container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 25px;
+  }
+  .form-field {
+    display: flex;
+    flex-direction: column;
+  }
+  .form-field.full-width {
+    grid-column: 1/-1;
+  }
+  .form-field label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .form-field input, .form-field select, .form-field textarea {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+  }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
+    outline: none;
+    border-color: #007cba;
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
+  }
+  .form-field textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+  .form-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+  }
+  .form-section h3 {
+    margin: 0 0 15px 0;
+    color: #007cba;
+    font-size: 16px;
+  }
+  .form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+  }
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: #007cba; color: white; }
+  .btn-primary:hover { background: #005a87; }
+  .btn-secondary { background: #6c757d; color: white; }
+  .btn-secondary:hover { background: #545b62; }
+  .voyage-header {
+    background: #007cba;
+    color: white;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 25px;
+  }
+  .voyage-header h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .voyage-header p {
+    margin: 5px 0 0 0;
+    opacity: 0.9;
+  }
+</style>
+
+<div class="voyage-header">
+  <h2>🚢 {{ voyage.bateau }} - {{ title }}</h2>
+  <p>{{ voyage.port_depart }} → {{ voyage.port_arrivee|default:"En cours" }}</p>
+</div>
+
+<div class="form-container">
+  <form method="post">
+    {% csrf_token %}
+    
+    <!-- Section Timing -->
+    <div class="form-section">
+      <h3>🕐 Date et heure</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.date.label_tag }}
+          {{ form.date }}
+        </div>
+        <div class="form-field">
+          {{ form.heure.label_tag }}
+          {{ form.heure }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section Navigation -->
+    <div class="form-section">
+      <h3>🧭 Navigation</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.log_nautique.label_tag }}
+          {{ form.log_nautique }}
+        </div>
+        <div class="form-field">
+          {{ form.cap_compas.label_tag }}
+          {{ form.cap_compas }}
+        </div>
+        <div class="form-field">
+          {{ form.position.label_tag }}
+          {{ form.position }}
+        </div>
+        <div class="form-field">
+          {{ form.origine_position.label_tag }}
+          {{ form.origine_position }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section Événements -->
+    <div class="form-section">
+      <h3>📝 Événements</h3>
+      <div class="form-field full-width">
+        {{ form.evenements.label_tag }}
+        {{ form.evenements }}
+      </div>
+    </div>
+    
+    <!-- Section Conditions -->
+    <div class="form-section">
+      <h3>🌊 Conditions de navigation</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.vent_force.label_tag }}
+          {{ form.vent_force }}
+        </div>
+        <div class="form-field">
+          {{ form.vent_direction.label_tag }}
+          {{ form.vent_direction }}
+        </div>
+        <div class="form-field">
+          {{ form.allure.label_tag }}
+          {{ form.allure }}
+        </div>
+        <div class="form-field">
+          {{ form.voilure.label_tag }}
+          {{ form.voilure }}
+        </div>
+        <div class="form-field">
+          {{ form.etat_mer.label_tag }}
+          {{ form.etat_mer }}
+        </div>
+        <div class="form-field">
+          {{ form.sonde.label_tag }}
+          {{ form.sonde }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section Observations -->
+    <div class="form-section">
+      <h3>🔍 Observations météorologiques</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.visibilite.label_tag }}
+          {{ form.visibilite }}
+        </div>
+        <div class="form-field">
+          {{ form.barometre.label_tag }}
+          {{ form.barometre }}
+        </div>
+        <div class="form-field">
+          {{ form.nuages_temps.label_tag }}
+          {{ form.nuages_temps }}
+        </div>
+        <div class="form-field">
+          {{ form.courants.label_tag }}
+          {{ form.courants }}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Section Coordonnées GPS -->
+    <div class="form-section">
+      <h3>📍 Coordonnées GPS (optionnel)</h3>
+      <div class="form-grid">
+        <div class="form-field">
+          {{ form.latitude.label_tag }}
+          {{ form.latitude }}
+        </div>
+        <div class="form-field">
+          {{ form.longitude.label_tag }}
+          {{ form.longitude }}
+        </div>
+      </div>
+      <div class="geolocation-controls" style="margin-top: 15px;">
+        <button type="button" id="getLocationBtn" class="btn btn-secondary">
+          📍 Obtenir ma position actuelle
+        </button>
+        <button type="button" id="formatCoordsBtn" class="btn btn-secondary" style="margin-left: 10px;">
+          📋 Formater les coordonnées saisies
+        </button>
+        <button type="button" id="testGeoBtn" class="btn btn-secondary" style="margin-left: 10px;">
+          🔧 Tester géolocalisation
+        </button>
+        <div id="locationStatus" style="margin-top: 10px; font-size: 14px;"></div>
+      </div>
+    </div>
+    
+    <div class="form-actions">
+      <div>
+        <button type="submit" class="btn btn-primary">
+          💾 {% if entry %}Modifier{% else %}Ajouter{% endif %} l'entrée
+        </button>
+        <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-secondary">Annuler</a>
+      </div>
+      
+      <div style="color: #666; font-size: 12px;">
+        📋 Tous les champs sont optionnels sauf les événements
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Fonction pour obtenir l'heure locale (GMT-10)
+  function getLocalTime() {
+    const now = new Date();
+    // Créer une date pour GMT-10
+    const localTime = new Date(now.getTime() - (10 * 60 * 60 * 1000));
+    return localTime;
+  }
+  
+  // Mettre l'heure actuelle par défaut si le champ heure est vide
+  const heureInput = document.querySelector('input[name="heure"]');
+  if (heureInput && !heureInput.value) {
+    const localTime = getLocalTime();
+    const hours = String(localTime.getUTCHours()).padStart(2, '0');
+    const minutes = String(localTime.getUTCMinutes()).padStart(2, '0');
+    heureInput.value = `${hours}:${minutes}`;
+  }
+  
+  // Mettre la date actuelle par défaut si le champ date est vide
+  const dateInput = document.querySelector('input[name="date"]');
+  if (dateInput && !dateInput.value) {
+    const localTime = getLocalTime();
+    const year = localTime.getUTCFullYear();
+    const month = String(localTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(localTime.getUTCDate()).padStart(2, '0');
+    dateInput.value = `${day}/${month}/${year}`;
+  }
+  
+  // Géolocalisation
+  const getLocationBtn = document.getElementById('getLocationBtn');
+  const formatCoordsBtn = document.getElementById('formatCoordsBtn');
+  const testGeoBtn = document.getElementById('testGeoBtn');
+  const locationStatus = document.getElementById('locationStatus');
+  const latitudeInput = document.querySelector('input[name="latitude"]');
+  const longitudeInput = document.querySelector('input[name="longitude"]');
+  
+  // Affichage des informations de debug au chargement
+  console.log('Geolocation available:', !!navigator.geolocation);
+  console.log('HTTPS:', location.protocol === 'https:');
+  console.log('Localhost:', location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+  
+  // Fonction pour convertir les coordonnées décimales en format maritime
+  function formatCoordinates(lat, lng) {
+    // Convertir latitude
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const latAbs = Math.abs(lat);
+    const latDeg = Math.floor(latAbs);
+    const latMin = ((latAbs - latDeg) * 60).toFixed(3);
+    
+    // Convertir longitude  
+    const lngDir = lng >= 0 ? 'E' : 'W';
+    const lngAbs = Math.abs(lng);
+    const lngDeg = Math.floor(lngAbs);
+    const lngMin = ((lngAbs - lngDeg) * 60).toFixed(3);
+    
+    return `${latDeg}°${latMin}' ${latDir}, ${lngDeg}°${lngMin}' ${lngDir}`;
+  }
+  
+  // Fonction pour remplir automatiquement le champ position
+  function fillPositionFromCoords(lat, lng) {
+    const positionInput = document.querySelector('input[name="position"]');
+    const origineInput = document.querySelector('input[name="origine_position"]');
+    
+    if (positionInput && lat && lng) {
+      const formattedPos = formatCoordinates(lat, lng);
+      positionInput.value = formattedPos;
+      
+      // Remplir aussi l'origine si elle est vide
+      if (origineInput && !origineInput.value) {
+        origineInput.value = 'GPS';
+      }
+      
+      console.log('Position formatted:', formattedPos);
+    }
+  }
+  
+  if (getLocationBtn) {
+    getLocationBtn.addEventListener('click', function() {
+      if (!navigator.geolocation) {
+        locationStatus.textContent = '❌ Géolocalisation non supportée par ce navigateur';
+        locationStatus.style.color = '#dc3545';
+        return;
+      }
+      
+      locationStatus.textContent = '🔄 Recherche de position...';
+      locationStatus.style.color = '#007cba';
+      getLocationBtn.disabled = true;
+      
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      };
+      
+      navigator.geolocation.getCurrentPosition(
+        function(position) {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          
+          if (latitudeInput) latitudeInput.value = lat;
+          if (longitudeInput) longitudeInput.value = lng;
+          
+          // Remplir automatiquement le champ position avec le format maritime
+          fillPositionFromCoords(position.coords.latitude, position.coords.longitude);
+          
+          locationStatus.textContent = `✅ Position obtenue (précision: ${Math.round(position.coords.accuracy)}m)`;
+          locationStatus.style.color = '#28a745';
+          getLocationBtn.disabled = false;
+        },
+        function(error) {
+          let errorMessage = '❌ ';
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage += 'Permission de géolocalisation refusée';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage += 'Position indisponible';
+              break;
+            case error.TIMEOUT:
+              errorMessage += 'Délai d\'attente dépassé';
+              break;
+            default:
+              errorMessage += 'Erreur de géolocalisation';
+              break;
+          }
+          locationStatus.textContent = errorMessage;
+          locationStatus.style.color = '#dc3545';
+          getLocationBtn.disabled = false;
+        },
+        options
+      );
+    });
+  }
+  
+  // Bouton pour formater les coordonnées déjà saisies
+  if (formatCoordsBtn) {
+    formatCoordsBtn.addEventListener('click', function() {
+      const lat = parseFloat(latitudeInput?.value);
+      const lng = parseFloat(longitudeInput?.value);
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        locationStatus.textContent = '❌ Veuillez d\'abord saisir des coordonnées valides dans les champs Latitude et Longitude';
+        locationStatus.style.color = '#dc3545';
+        return;
+      }
+      
+      // Vérifier que les coordonnées sont dans les bonnes plages
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        locationStatus.textContent = '❌ Coordonnées invalides (Latitude: -90 à 90, Longitude: -180 à 180)';
+        locationStatus.style.color = '#dc3545';
+        return;
+      }
+      
+      fillPositionFromCoords(lat, lng);
+      locationStatus.textContent = '✅ Position formatée à partir des coordonnées saisies';
+      locationStatus.style.color = '#28a745';
+    });
+  }
+  
+  // Bouton de test de géolocalisation
+  if (testGeoBtn) {
+    testGeoBtn.addEventListener('click', function() {
+      locationStatus.innerHTML = `
+        <strong>🔧 Test de géolocalisation :</strong><br>
+        • Navigateur supporte géolocalisation: ${!!navigator.geolocation ? '✅' : '❌'}<br>
+        • Protocol: ${location.protocol}<br>
+        • Hostname: ${location.hostname}<br>
+        • Permissions API: ${!!navigator.permissions ? '✅' : '❌'}
+      `;
+      
+      if (navigator.permissions) {
+        navigator.permissions.query({name: 'geolocation'}).then(function(result) {
+          locationStatus.innerHTML += `<br>• Permission géolocalisation: ${result.state}`;
+        });
+      }
+    });
+  }
+  
+  // Variables pour gérer la soumission
+  let isGeolocating = false;
+  let hasTriedGeolocation = false;
+  
+  // Géolocalisation automatique lors de la soumission
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      console.log('Form submit triggered');
+      console.log('Latitude value:', latitudeInput?.value);
+      console.log('Longitude value:', longitudeInput?.value);
+      console.log('Navigator geolocation:', !!navigator.geolocation);
+      console.log('Is geolocating:', isGeolocating);
+      console.log('Has tried geolocation:', hasTriedGeolocation);
+      
+      // Si on est déjà en train de géolocaliser, attendre
+      if (isGeolocating) {
+        e.preventDefault();
+        return;
+      }
+      
+      // Si les coordonnées ne sont pas remplies ET qu'on n'a pas encore essayé la géolocalisation
+      const hasCoords = latitudeInput?.value && longitudeInput?.value;
+      const canGeolocate = navigator.geolocation && !hasTriedGeolocation;
+      
+      if (!hasCoords && canGeolocate) {
+        e.preventDefault(); // Empêcher la soumission immédiate
+        isGeolocating = true;
+        hasTriedGeolocation = true;
+        
+        console.log('Starting automatic geolocation');
+        locationStatus.textContent = '🔄 Détection automatique de position...';
+        locationStatus.style.color = '#007cba';
+        
+        const options = {
+          enableHighAccuracy: true,
+          timeout: 8000, // Augmenté à 8 secondes
+          maximumAge: 60000
+        };
+        
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            console.log('Geolocation success:', position);
+            
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            if (latitudeInput && !latitudeInput.value) {
+              latitudeInput.value = lat.toFixed(6);
+            }
+            if (longitudeInput && !longitudeInput.value) {
+              longitudeInput.value = lng.toFixed(6);
+            }
+            
+            // Remplir automatiquement le champ position avec le format maritime
+            fillPositionFromCoords(lat, lng);
+            
+            locationStatus.textContent = `✅ Position automatique obtenue et formatée`;
+            locationStatus.style.color = '#28a745';
+            isGeolocating = false;
+            
+            // Soumettre le formulaire maintenant
+            console.log('Submitting form with coordinates and formatted position');
+            setTimeout(() => form.submit(), 100);
+          },
+          function(error) {
+            console.log('Geolocation error:', error);
+            // En cas d'erreur, soumettre quand même le formulaire sans coordonnées
+            locationStatus.textContent = '⚠️ Position non détectée, soumission sans coordonnées';
+            locationStatus.style.color = '#ffc107';
+            isGeolocating = false;
+            
+            setTimeout(() => form.submit(), 100);
+          },
+          options
+        );
+      } else {
+        console.log('Submitting form normally - hasCoords:', hasCoords, 'canGeolocate:', canGeolocate);
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

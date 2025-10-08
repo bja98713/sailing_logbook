@@ -18,7 +18,8 @@ class LogbookEntryForm(forms.ModelForm):
         model = LogbookEntry
         fields = [
             'start_datetime', 'end_datetime', 'departure_port', 'arrival_port',
-            'start_position', 'end_position', 'start_lat', 'start_lng', 'end_lat', 'end_lng', 'distance_nm', 'avg_speed_kn',
+            'start_position', 'end_position', 'start_lat', 'start_lng', 'end_lat', 'end_lng', 
+            'distance_nm', 'duration_hours', 'avg_speed_kn',
             'weather', 'wind', 'sea_state', 'tide_current', 'avg_course',
             'engine_hours', 'fuel_liters', 'crew', 'notes', 'photos_url', 'cover_photo'
         ]

@@ -78,3 +78,95 @@ class ChronologyAdmin(admin.ModelAdmin):
     list_display = ('date', 'time', 'performer', 'description')
     list_filter = ('performer',)
     search_fields = ('description', 'action_realisee')
+
+
+# === ADMINISTRATION NOUVEAU SYSTÈME DE LIVRE DE BORD ===
+
+class LogEntryInline(admin.TabularInline):
+    model = models.LogEntry
+    extra = 0
+    fields = ('date', 'heure', 'evenements', 'position', 'vent_force', 'allure')
+
+class VoyageCrewMemberInline(admin.TabularInline):
+    model = models.VoyageCrewMember
+    extra = 0
+    fields = ('nom', 'prenom', 'role')
+
+class WeatherConditionInline(admin.StackedInline):
+    model = models.WeatherCondition
+    extra = 0
+    fields = ('datetime', 'type_bulletin', 'situation_generale')
+
+@admin.register(models.VoyageLog)
+class VoyageLogAdmin(admin.ModelAdmin):
+    list_display = ('sujet_voyage_ou_bateau', 'skipper', 'port_depart', 'port_arrivee', 'date_debut', 'statut')
+    list_filter = ('statut', 'date_debut', 'skipper')
+    search_fields = ('sujet_voyage', 'bateau', 'skipper', 'port_depart', 'port_arrivee')
+    date_hierarchy = 'date_debut'
+    
+    inlines = [LogEntryInline, VoyageCrewMemberInline, WeatherConditionInline]
+    
+    fieldsets = (
+        ('Informations du voyage', {
+            'fields': ('sujet_voyage', 'bateau', 'skipper', 'immatriculation')
+        }),
+        ('Navigation', {
+            'fields': ('date_debut', 'date_fin', 'port_depart', 'port_arrivee')
+        }),
+        ('Statut', {
+            'fields': ('statut',)
+        }),
+    )
+    
+    def sujet_voyage_ou_bateau(self, obj):
+        return obj.sujet_voyage if obj.sujet_voyage else obj.bateau
+    sujet_voyage_ou_bateau.short_description = 'Voyage'
+
+@admin.register(models.LogEntry)
+class LogEntryAdmin(admin.ModelAdmin):
+    list_display = ('voyage', 'date', 'heure', 'evenements_short', 'position', 'vent_display')
+    list_filter = ('voyage', 'date', 'allure', 'origine_position')
+    search_fields = ('evenements', 'position', 'vent_force')
+    date_hierarchy = 'date'
+    
+    def evenements_short(self, obj):
+        return obj.evenements[:50] + '...' if len(obj.evenements) > 50 else obj.evenements
+    evenements_short.short_description = 'Événements'
+    
+    def vent_display(self, obj):
+        if obj.vent_force and obj.vent_direction:
+            return f"{obj.vent_force} {obj.vent_direction}"
+        return obj.vent_force or '-'
+    vent_display.short_description = 'Vent'
+
+@admin.register(models.WeatherCondition)
+class WeatherConditionAdmin(admin.ModelAdmin):
+    list_display = ('voyage', 'datetime', 'type_bulletin', 'situation_generale_short')
+    list_filter = ('voyage', 'datetime', 'type_bulletin')
+    search_fields = ('situation_generale', 'type_bulletin')
+    date_hierarchy = 'datetime'
+    
+    def situation_generale_short(self, obj):
+        return obj.situation_generale[:50] + '...' if len(obj.situation_generale) > 50 else obj.situation_generale
+    situation_generale_short.short_description = 'Situation'
+
+@admin.register(models.VoyageCrewMember)
+class VoyageCrewMemberAdmin(admin.ModelAdmin):
+    list_display = ('nom_complet', 'voyage', 'role', 'contact_telephone')
+    list_filter = ('role', 'voyage')
+    search_fields = ('nom', 'prenom', 'contact_telephone')
+    
+    def nom_complet(self, obj):
+        return f"{obj.prenom} {obj.nom}"
+    nom_complet.short_description = 'Nom'
+
+@admin.register(models.VoyageIncident)
+class VoyageIncidentAdmin(admin.ModelAdmin):
+    list_display = ('voyage', 'datetime', 'type_incident', 'gravite', 'description_short')
+    list_filter = ('type_incident', 'gravite', 'voyage', 'datetime')
+    search_fields = ('description', 'actions_prises')
+    date_hierarchy = 'datetime'
+    
+    def description_short(self, obj):
+        return obj.description[:50] + '...' if len(obj.description) > 50 else obj.description
+    description_short.short_description = 'Description'

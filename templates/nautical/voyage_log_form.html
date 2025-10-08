@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if voyage %}Modifier{% else %}Nouveau{% endif %} livre de bord{% endblock %}
+
+{% block content %}
+<style>
+  .form-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 25px;
+  }
+  .form-field {
+    display: flex;
+    flex-direction: column;
+  }
+  .form-field.full-width {
+    grid-column: 1/-1;
+  }
+  .form-field label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+  }
+  .form-field input, .form-field select {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .form-field input:focus, .form-field select:focus {
+    outline: none;
+    border-color: #007cba;
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
+  }
+  /* Style pour les champs de date */
+  .form-field input[placeholder*="/"] {
+    font-family: 'Courier New', monospace;
+  }
+  .form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+  }
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary { background: #007cba; color: white; }
+  .btn-secondary { background: #6c757d; color: white; }
+</style>
+
+<div class="form-container">
+  <h2>{% if voyage %}✏️ Modifier le livre de bord{% else %}📚 Nouveau livre de bord{% endif %}</h2>
+  
+  <form method="post">
+    {% csrf_token %}
+    
+    <!-- Debug: affichage des erreurs -->
+    {% if form.errors %}
+      <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+        <strong>Erreurs dans le formulaire :</strong>
+        <ul style="margin: 10px 0 0 0;">
+        {% for field, errors in form.errors.items %}
+          <li><strong>{{ field }}:</strong> {{ errors|join:", " }}</li>
+        {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    
+    <div class="form-grid">
+      <div class="form-field full-width">
+        {{ form.sujet_voyage.label_tag }}
+        {{ form.sujet_voyage }}
+        <small style="color: #666; margin-top: 5px;">{{ form.sujet_voyage.help_text }}</small>
+      </div>
+      
+      <!-- Champ 'Nom du bateau' retiré (toujours MANTA automatiquement) -->
+      
+      <!-- Champ 'Skipper' retiré (pré-rempli automatiquement) -->
+      
+      <div class="form-field">
+        {{ form.date_debut.label_tag }}
+        {{ form.date_debut }}
+        {% if form.date_debut.errors %}
+          <small style="color: red; margin-top: 5px;">{{ form.date_debut.errors|join:", " }}</small>
+        {% else %}
+          <small style="color: #666; margin-top: 5px;">Format recommandé : 06/10/2025</small>
+        {% endif %}
+      </div>
+      
+      <div class="form-field">
+        {{ form.date_fin.label_tag }}
+        {{ form.date_fin }}
+        {% if form.date_fin.errors %}
+          <small style="color: red; margin-top: 5px;">{{ form.date_fin.errors|join:", " }}</small>
+        {% else %}
+          <small style="color: #666; margin-top: 5px;">Optionnel - Format : 15/10/2025</small>
+        {% endif %}
+      </div>
+      
+      <div class="form-field">
+        {{ form.port_depart.label_tag }}
+        {{ form.port_depart }}
+      </div>
+      
+      <div class="form-field">
+        {{ form.port_arrivee.label_tag }}
+        {{ form.port_arrivee }}
+      </div>
+      
+      <!-- Champ 'Immatriculation' retiré (prérempli automatiquement si disponible) -->
+      
+      <div class="form-field">
+        {{ form.statut.label_tag }}
+        {{ form.statut }}
+      </div>
+    </div>
+    
+    <div class="form-actions">
+      <div>
+        <button type="submit" class="btn btn-primary">
+          💾 {% if voyage %}Modifier{% else %}Créer{% endif %} le livre de bord
+        </button>
+        <a href="{% url 'voyage_log_list' %}" class="btn btn-secondary">Annuler</a>
+      </div>
+      
+      {% if voyage %}
+      <a href="{% url 'voyage_log_detail' voyage.pk %}" style="color: #007cba; text-decoration: none;">
+        📖 Voir le livre →
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Validation des dates en temps réel et valeurs par défaut
+document.addEventListener('DOMContentLoaded', function() {
+  // Fonction pour obtenir la date locale (GMT-10)
+  function getLocalDate() {
+    const now = new Date();
+    const localTime = new Date(now.getTime() - (10 * 60 * 60 * 1000));
+    return localTime;
+  }
+  
+  // Remplir automatiquement les champs de date vides avec la date du jour
+  const dateFields = document.querySelectorAll('input[placeholder*="/"]');
+  dateFields.forEach(field => {
+    if (!field.value) {
+      const localDate = getLocalDate();
+      const day = String(localDate.getUTCDate()).padStart(2, '0');
+      const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+      const year = localDate.getUTCFullYear();
+      field.value = `${day}/${month}/${year}`;
+    }
+  });
+  
+  dateFields.forEach(field => {
+    field.addEventListener('blur', function() {
+      const value = this.value.trim();
+      if (!value) return; // Ignorer les champs vides
+      
+      // Regex pour différents formats (privilégier le format français)
+      const formats = [
+        /^\d{1,2}\/\d{1,2}\/\d{4}$/,  // JJ/MM/AAAA (format français recommandé)
+        /^\d{4}-\d{1,2}-\d{1,2}$/,    // AAAA-MM-JJ (format ISO)
+        /^\d{1,2}-\d{1,2}-\d{4}$/,    // JJ-MM-AAAA
+        /^\d{4}\/\d{1,2}\/\d{1,2}$/   // AAAA/MM/JJ
+      ];
+      
+      const isValid = formats.some(regex => regex.test(value));
+      
+      if (isValid) {
+        this.style.borderColor = '#28a745';
+        this.style.backgroundColor = '#f8fff9';
+      } else {
+        this.style.borderColor = '#dc3545';
+        this.style.backgroundColor = '#fff5f5';
+      }
+    });
+    
+    // Retirer la validation visuelle au focus
+    field.addEventListener('focus', function() {
+      this.style.borderColor = '#007cba';
+      this.style.backgroundColor = 'white';
+    });
+  });
+});
+</script>
+{% endblock %}
