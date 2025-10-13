@@ -19,39 +19,16 @@ class VoyageLogForm(forms.ModelForm):
             if self.instance.date_fin:
                 self.fields['date_fin'].initial = self.instance.date_fin.strftime('%d/%m/%Y')
     
-    def clean_date_debut(self):
-        date_str = self.cleaned_data.get('date_debut')
-        if not date_str:
-            raise forms.ValidationError("La date de début est obligatoire")
+    def clean(self):
+        cleaned_data = super().clean()
+        date_debut = cleaned_data.get('date_debut')
+        date_fin = cleaned_data.get('date_fin')
         
-        # Essayer plusieurs formats
-        from datetime import datetime
-        formats = ['%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d']
+        # Vérifier que date_fin > date_debut si elle est fournie
+        if date_debut and date_fin and date_fin < date_debut:
+            raise forms.ValidationError("La date de fin doit être postérieure à la date de début")
         
-        for fmt in formats:
-            try:
-                return datetime.strptime(str(date_str), fmt).date()
-            except (ValueError, TypeError):
-                continue
-        
-        raise forms.ValidationError("Format de date invalide. Utilisez JJ/MM/AAAA ou AAAA-MM-JJ")
-    
-    def clean_date_fin(self):
-        date_str = self.cleaned_data.get('date_fin')
-        if not date_str:
-            return None  # Date de fin optionnelle
-        
-        # Essayer plusieurs formats
-        from datetime import datetime
-        formats = ['%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d']
-        
-        for fmt in formats:
-            try:
-                return datetime.strptime(str(date_str), fmt).date()
-            except (ValueError, TypeError):
-                continue
-        
-        raise forms.ValidationError("Format de date invalide. Utilisez JJ/MM/AAAA ou AAAA-MM-JJ")
+        return cleaned_data
     
     class Meta:
         model = VoyageLogNew
@@ -60,8 +37,8 @@ class VoyageLogForm(forms.ModelForm):
             'sujet_voyage', 'statut'
         ]
         widgets = {
-            'date_debut': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '06/10/2025'}),
-            'date_fin': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '15/10/2025 (optionnel)'}),
+            'date_debut': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}, format='%Y-%m-%d'),
+            'date_fin': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}, format='%Y-%m-%d'),
             'port_depart': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Port ou mouillage de départ'}),
             'port_arrivee': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Port ou mouillage d\'arrivée'}),
             'sujet_voyage': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Séjour à Moorea, Visite des Tuamotu'}),
@@ -247,8 +224,8 @@ class CrewMemberNewForm(forms.ModelForm):
             'contact_nom': forms.TextInput(attrs={'class': 'form-control'}),
             'contact_telephone': forms.TextInput(attrs={'class': 'form-control', 'id': 'new_telephone'}),
             'contact_relation': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Époux/se, Parent'}),
-            'date_embarquement': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'JJ/MM/AAAA'}),
-            'date_debarquement': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'JJ/MM/AAAA (optionnel)'}),
+            'date_embarquement': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'date_debarquement': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -260,7 +237,7 @@ class CrewMemberNewForm(forms.ModelForm):
         # Pré-remplir les dates par défaut
         if not self.instance.pk:
             from datetime import date
-            self.fields['date_embarquement'].initial = date.today().strftime('%d/%m/%Y')
+            self.fields['date_embarquement'].initial = date.today()
     
     def clean(self):
         cleaned_data = super().clean()
@@ -283,39 +260,16 @@ class CrewMemberNewForm(forms.ModelForm):
         
         return cleaned_data
     
-    def clean_date_embarquement(self):
-        date_str = self.cleaned_data.get('date_embarquement')
-        if not date_str:
-            return None
+    def clean(self):
+        cleaned_data = super().clean()
+        date_embarquement = cleaned_data.get('date_embarquement')
+        date_debarquement = cleaned_data.get('date_debarquement')
         
-        # Essayer plusieurs formats
-        from datetime import datetime
-        formats = ['%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d']
+        # Vérifier que date_debarquement > date_embarquement si elle est fournie
+        if date_embarquement and date_debarquement and date_debarquement < date_embarquement:
+            raise forms.ValidationError("La date de débarquement doit être postérieure à la date d'embarquement")
         
-        for fmt in formats:
-            try:
-                return datetime.strptime(str(date_str), fmt).date()
-            except (ValueError, TypeError):
-                continue
-        
-        raise forms.ValidationError("Format de date invalide. Utilisez JJ/MM/AAAA")
-    
-    def clean_date_debarquement(self):
-        date_str = self.cleaned_data.get('date_debarquement')
-        if not date_str:
-            return None
-        
-        # Essayer plusieurs formats
-        from datetime import datetime
-        formats = ['%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d']
-        
-        for fmt in formats:
-            try:
-                return datetime.strptime(str(date_str), fmt).date()
-            except (ValueError, TypeError):
-                continue
-        
-        raise forms.ValidationError("Format de date invalide. Utilisez JJ/MM/AAAA")
+        return super().clean()
 
 
 class IncidentNewForm(forms.ModelForm):

@@ -91,21 +91,41 @@ python manage.py createsuperuser  # optionnel
 5. Next
 
 ### Configuration WSGI
-Éditer `/var/www/yourusername_pythonanywhere_com_wsgi.py`:
+Éditer `/var/www/terry98713_pythonanywhere_com_wsgi.py`:
 
 ```python
 import os
 import sys
 
 # Ajouter le chemin du projet
-path = '/home/yourusername/sailing_logbook'
+path = '/home/terry98713/sailing_logbook'
 if path not in sys.path:
     sys.path.insert(0, path)
 
-# Activer l'environnement virtuel
-activate_this = '/home/yourusername/sailing_logbook/.venv/bin/activate_this.py'
-with open(activate_this) as f:
-    exec(f.read(), dict(__file__=activate_this))
+# Méthode moderne pour activer l'environnement virtuel (Python 3.10+)
+venv_path = '/home/terry98713/sailing_logbook/.venv'
+site_packages = os.path.join(venv_path, 'lib', 'python3.10', 'site-packages')
+sys.path.insert(0, site_packages)
+
+# Configuration Django
+os.environ['DJANGO_SETTINGS_MODULE'] = 'sailing_logbook.settings'
+
+from django.core.wsgi import get_wsgi_application
+application = get_wsgi_application()
+```
+
+**Alternative si la méthode ci-dessus ne fonctionne pas:**
+```python
+import os
+import sys
+
+# Ajouter le chemin du projet
+path = '/home/terry98713/sailing_logbook'
+if path not in sys.path:
+    sys.path.insert(0, path)
+
+# Utiliser directement le virtualenv via le dashboard PythonAnywhere
+# (Configure le virtualenv dans l'onglet Web au lieu du code WSGI)
 
 # Configuration Django
 os.environ['DJANGO_SETTINGS_MODULE'] = 'sailing_logbook.settings'
@@ -136,6 +156,7 @@ Si tu as des fichiers média:
 
 ## Mise à jour du code
 
+### Récupérer depuis GitHub vers PythonAnywhere
 ```bash
 cd ~/sailing_logbook
 git pull origin main
@@ -145,6 +166,65 @@ python manage.py migrate
 python manage.py collectstatic --noinput
 # Recharger l'app web dans le dashboard
 ```
+
+### Pousser depuis PythonAnywhere vers GitHub
+Si tu as fait des modifications directement sur PythonAnywhere :
+
+```bash
+cd ~/sailing_logbook
+git add -A
+git commit -m "Description des modifications"
+git push origin main
+```
+
+**Important :** Pour pousser vers GitHub depuis PythonAnywhere, tu dois configurer l'authentification :
+
+1. **Avec un token GitHub (recommandé) :**
+   ```bash
+   # Première fois seulement - configure ton nom/email
+   git config --global user.name "Ton Nom"
+   git config --global user.email "ton.email@exemple.com"
+   
+   # Utilise un Personal Access Token au lieu du mot de passe
+   # Génère le token sur GitHub : Settings → Developer settings → Personal access tokens
+   git push origin main
+   # Quand demandé, utilise ton token comme mot de passe
+   ```
+
+2. **Ou configurer une clé SSH :**
+   ```bash
+   # Génère une clé SSH sur PythonAnywhere
+   ssh-keygen -t rsa -b 4096 -C "ton.email@exemple.com"
+   cat ~/.ssh/id_rsa.pub
+   # Copie la clé publique et ajoute-la à ton compte GitHub
+   # GitHub Settings → SSH and GPG keys → New SSH key
+   ```
+
+### Sur ton ordinateur local (macOS)
+Pour récupérer les dernières modifications depuis GitHub vers ton Mac :
+
+```bash
+cd /Users/bronstein/sailing_logbook
+git pull origin main
+
+# Si tu as des nouvelles dépendances
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Si il y a de nouvelles migrations
+python manage.py migrate
+```
+
+### Workflow complet (développement)
+1. **Développer localement** sur ton Mac
+2. **Tester** : `python manage.py runserver`
+3. **Commiter et pousser** : 
+   ```bash
+   git add -A
+   git commit -m "Description des changements"
+   git push origin main
+   ```
+4. **Mettre à jour PythonAnywhere** avec les commandes ci-dessus
 
 ## Dépannage
 

@@ -118,8 +118,13 @@ class VoyageLogDetailView(DetailView):
             context['first_entry'] = first_entry
             context['last_entry'] = last_entry
             
-            # Calculer la durée du voyage si on a des entrées
-            if first_entry and last_entry:
+            # Calculer la durée du voyage basée sur les dates de début/fin du voyage
+            if voyage.date_fin and voyage.date_debut:
+                # Utiliser les dates de voyage, pas les entrées de log
+                duration = voyage.date_fin - voyage.date_debut
+                context['voyage_duration'] = duration
+            elif first_entry and last_entry:
+                # Fallback: si pas de date de fin, utiliser les entrées
                 from django.utils.timezone import make_aware, get_current_timezone
                 tz = get_current_timezone()
                 start_naive = timezone.datetime.combine(first_entry.date, first_entry.heure)

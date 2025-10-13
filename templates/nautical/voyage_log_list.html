@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load nautical_filters %}
 
 {% block title %}Livres de bord — Navigation{% endblock %}
 
@@ -123,12 +124,12 @@
         </div>
         <div class="voyage-meta-item">
           <div class="voyage-meta-label">Date de début</div>
-          <div>{{ voyage.date_debut|date:"d/m/Y" }}</div>
+          <div>{{ voyage.date_debut|date_fr }}</div>
         </div>
         {% if voyage.date_fin %}
         <div class="voyage-meta-item">
           <div class="voyage-meta-label">Date de fin</div>
-          <div>{{ voyage.date_fin|date:"d/m/Y" }}</div>
+          <div>{{ voyage.date_fin|date_fr }}</div>
         </div>
         {% endif %}
         <div class="voyage-meta-item">

@@ -58,7 +58,12 @@ DATABASES = {'default': {
 LANGUAGE_CODE = 'fr-fr'
 TIME_ZONE = 'Pacific/Tahiti'
 USE_I18N = True
+USE_L10N = True
 USE_TZ = True
+
+# Configuration française pour les dates
+DATE_FORMAT = 'd/m/Y'
+SHORT_DATE_FORMAT = 'd/m/Y'
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
