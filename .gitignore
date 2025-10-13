@@ -1,22 +1,38 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 
+# Virtual environments
 .venv/
 venv/
 ENV/
+.env
 
+# Database
 db.sqlite3
+db.sqlite3-journal
 
+# Media uploads
 /media/
 media/
 
+# Static files
 staticfiles/
-node_modules/
+static/frontend/
 
+# Frontend
+node_modules/
+frontend/dist/
+frontend/build/
+
+# IDEs
 .vscode/
 .idea/
 
+# macOS
 .DS_Store
+*.app/
 
+# Logs
 *.log

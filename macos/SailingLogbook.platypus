@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>AppName</key>
+  <string>Sailing Logbook</string>
+  <key>BundleIdentifier</key>
+  <string>com.bja98713.sailinglogbook</string>
+  <key>Author</key>
+  <string>Sailing Logbook</string>
+
+  <!-- Script configuration -->
+  <key>ScriptPath</key>
+  <string>/Users/bronstein/sailing_logbook/macos/launch_server.sh</string>
+  <key>Interpreter</key>
+  <string>/bin/zsh</string>
+  <key>RunInBackground</key>
+  <true/>
+  <key>RemainRunning</key>
+  <true/>
+
+  <!-- UI/Output -->
+  <key>InterfaceType</key>
+  <string>None</string>
+  <key>Output</key>
+  <string>None</string>
+
+  <!-- Dropping files/text not supported -->
+  <key>Droppable</key>
+  <false/>
+  <key>AcceptsFiles</key>
+  <false/>
+  <key>AcceptsText</key>
+  <false/>
+  <key>PromptForFileOnLaunch</key>
+  <false/>
+
+  <!-- Optional icon (set in Platypus UI) -->
+  <key>IconPath</key>
+  <string></string>
+
+  <!-- Working directory (project root) -->
+  <key>WorkingDirectory</key>
+  <string>/Users/bronstein/sailing_logbook</string>
+
+  <!-- Environment variables -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key>
+    <string>8000</string>
+  </dict>
+
+  <!-- Misc -->
+  <key>Suffixes</key>
+  <array/>
+  <key>DropHandling</key>
+  <string>Ignore</string>
+</dict>
+</plist>
