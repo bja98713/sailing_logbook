@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load nautical_filters %}
+
+{% block title %}Supprimer photo - {{ voyage.sujet_voyage }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- En-tête avec navigation -->
+  <div class="row mb-4">
+    <div class="col">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'home' %}">🏠 Accueil</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'voyage_log_list' %}">📖 Livres de bord</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'voyage_log_detail' voyage.pk %}">{{ voyage.sujet_voyage }}</a></li>
+          <li class="breadcrumb-item active">🗑️ Supprimer photo</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Confirmation de suppression -->
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+          <h5 class="mb-0">🗑️ Confirmer la suppression</h5>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-warning">
+            <strong>⚠️ Attention !</strong> Cette action est irréversible. La photo sera définitivement supprimée.
+          </div>
+
+          <!-- Aperçu de la photo à supprimer -->
+          <div class="row">
+            <div class="col-md-4">
+              {% if object.image %}
+                <img src="{{ object.image.url }}" alt="{{ object.titre }}" 
+                     class="img-thumbnail w-100" style="max-height: 200px; object-fit: cover;">
+              {% else %}
+                <div class="bg-light p-3 text-center text-muted">
+                  📷 Pas d'aperçu disponible
+                </div>
+              {% endif %}
+            </div>
+            <div class="col-md-8">
+              <h6>Détails de la photo :</h6>
+              <ul class="list-unstyled">
+                <li><strong>Type :</strong> 
+                  {% if object.type_photo == 'header' %}
+                    📸 Photo d'en-tête
+                  {% else %}
+                    🖼️ Photo de galerie
+                  {% endif %}
+                </li>
+                <li><strong>Titre :</strong> {{ object.titre|default:"Sans titre" }}</li>
+                {% if object.description %}
+                  <li><strong>Description :</strong> {{ object.description|truncatewords:20 }}</li>
+                {% endif %}
+                {% if object.date_prise %}
+                  <li><strong>Date de prise :</strong> {{ object.date_prise|date_fr }}</li>
+                {% endif %}
+                {% if object.taille_fichier %}
+                  <li><strong>Taille :</strong> {{ object.taille_fichier_human }}</li>
+                {% endif %}
+                <li><strong>Ajoutée le :</strong> {{ object.created_at|date_fr }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <hr>
+
+          <form method="post">
+            {% csrf_token %}
+            <p class="mb-3">
+              Êtes-vous sûr(e) de vouloir supprimer cette photo 
+              {% if object.type_photo == 'header' %}<strong>d'en-tête</strong>{% endif %} ?
+            </p>
+            
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-danger">
+                🗑️ Oui, supprimer définitivement
+              </button>
+              <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-secondary">
+                ↩️ Annuler
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Infos voyage -->
+  <div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">ℹ️ Voyage concerné</h6>
+        </div>
+        <div class="card-body">
+          <p><strong>🚢 {{ voyage.bateau }}</strong> - {{ voyage.sujet_voyage }}</p>
+          <p><strong>📍 Trajet :</strong> {{ voyage.port_depart }} → {{ voyage.port_arrivee }}</p>
+          <p><strong>📅 Période :</strong> {{ voyage.date_debut|date_fr }}
+            {% if voyage.date_fin %} - {{ voyage.date_fin|date_fr }}{% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

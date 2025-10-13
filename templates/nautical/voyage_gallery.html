@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% load nautical_filters %}
+
+{% block title %}Galerie photos - {{ voyage.sujet_voyage }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- En-tête avec navigation -->
+  <div class="row mb-4">
+    <div class="col">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'home' %}">🏠 Accueil</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'voyage_log_list' %}">📖 Livres de bord</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'voyage_log_detail' voyage.pk %}">{{ voyage.sujet_voyage }}</a></li>
+          <li class="breadcrumb-item active">🖼️ Galerie photos</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Titre et actions -->
+  <div class="row mb-4">
+    <div class="col">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h2>🖼️ Galerie photos - {{ voyage.sujet_voyage }}</h2>
+          <p class="text-muted mb-0">
+            📸 {{ header_photo|yesno:"Photo d'en-tête définie,Pas de photo d'en-tête" }} • 
+            🖼️ {{ gallery_photos.count }} photo(s) de galerie
+          </p>
+        </div>
+        <div>
+          <a href="{% url 'voyage_photo_upload' voyage.pk %}?type=gallery" class="btn btn-primary">
+            📷 Ajouter une photo
+          </a>
+          <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-outline-secondary">
+            ↩️ Retour au voyage
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Photo d'en-tête -->
+  {% if header_photo %}
+  <div class="row mb-5">
+    <div class="col">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">📸 Photo d'en-tête</h5>
+          <div class="btn-group btn-group-sm">
+            <a href="{% url 'voyage_photo_update' header_photo.pk %}" class="btn btn-outline-primary btn-sm">
+              ✏️ Modifier
+            </a>
+            <a href="{% url 'voyage_photo_delete' header_photo.pk %}" class="btn btn-outline-danger btn-sm">
+              🗑️ Supprimer
+            </a>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="position-relative">
+            <img src="{{ header_photo.image.url }}" alt="{{ header_photo.titre }}" 
+                 class="w-100" style="max-height: 400px; object-fit: cover;">
+            {% if header_photo.titre or header_photo.description %}
+            <div class="position-absolute bottom-0 start-0 w-100 bg-dark bg-opacity-75 text-white p-3">
+              {% if header_photo.titre %}
+                <h6 class="mb-1">{{ header_photo.titre }}</h6>
+              {% endif %}
+              {% if header_photo.description %}
+                <p class="mb-0 small">{{ header_photo.description }}</p>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="row mb-5">
+    <div class="col">
+      <div class="card border-2 border-dashed">
+        <div class="card-body text-center py-5">
+          <h5 class="text-muted">📸 Pas de photo d'en-tête</h5>
+          <p class="text-muted">Ajoutez une photo d'en-tête pour mettre en valeur ce voyage</p>
+          <a href="{% url 'voyage_photo_upload' voyage.pk %}?type=header" class="btn btn-primary">
+            📷 Ajouter une photo d'en-tête
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Galerie de photos -->
+  <div class="row">
+    <div class="col">
+      <h4>🖼️ Galerie ({{ gallery_photos.count }} photo{% if gallery_photos.count > 1 %}s{% endif %})</h4>
+    </div>
+  </div>
+
+  {% if gallery_photos %}
+  <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+    {% for photo in gallery_photos %}
+    <div class="col">
+      <div class="card h-100">
+        <div class="position-relative">
+          <img src="{{ photo.image.url }}" alt="{{ photo.titre }}" 
+               class="card-img-top" style="height: 200px; object-fit: cover;">
+          
+          <!-- Actions en overlay -->
+          <div class="position-absolute top-0 end-0 p-2">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-light btn-sm opacity-75" 
+                      onclick="setHeaderPhoto({{ photo.pk }})"
+                      title="Définir comme photo d'en-tête">
+                📸
+              </button>
+              <a href="{% url 'voyage_photo_update' photo.pk %}" 
+                 class="btn btn-light btn-sm opacity-75" title="Modifier">
+                ✏️
+              </a>
+              <a href="{% url 'voyage_photo_delete' photo.pk %}" 
+                 class="btn btn-light btn-sm opacity-75" title="Supprimer">
+                🗑️
+              </a>
+            </div>
+          </div>
+
+          <!-- Badge ordre -->
+          {% if photo.ordre %}
+          <div class="position-absolute bottom-0 start-0 m-2">
+            <span class="badge bg-dark opacity-75">#{{ photo.ordre }}</span>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if photo.titre or photo.description or photo.date_prise %}
+        <div class="card-body p-3">
+          {% if photo.titre %}
+            <h6 class="card-title mb-1">{{ photo.titre }}</h6>
+          {% endif %}
+          {% if photo.description %}
+            <p class="card-text small text-muted">{{ photo.description|truncatewords:15 }}</p>
+          {% endif %}
+          {% if photo.date_prise %}
+            <p class="card-text">
+              <small class="text-muted">📅 {{ photo.date_prise|date_fr }}</small>
+            </p>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="row">
+    <div class="col">
+      <div class="card border-2 border-dashed">
+        <div class="card-body text-center py-5">
+          <h5 class="text-muted">🖼️ Aucune photo dans la galerie</h5>
+          <p class="text-muted">Ajoutez des photos pour documenter ce voyage</p>
+          <a href="{% url 'voyage_photo_upload' voyage.pk %}?type=gallery" class="btn btn-primary">
+            📷 Ajouter la première photo
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Actions globales -->
+  <div class="row mt-5">
+    <div class="col text-center">
+      <a href="{% url 'voyage_photo_upload' voyage.pk %}?type=gallery" class="btn btn-primary btn-lg">
+        📷 Ajouter une photo
+      </a>
+      <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-outline-secondary btn-lg">
+        ↩️ Retour au voyage
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+function setHeaderPhoto(photoId) {
+    if (confirm('Définir cette photo comme photo d\'en-tête du voyage ?')) {
+        window.location.href = `/livres-de-bord/{{ voyage.pk }}/photos/${photoId}/set-header/`;
+    }
+}
+</script>
+
+<style>
+.card:hover .btn-group {
+    opacity: 1 !important;
+}
+</style>
+{% endblock %}

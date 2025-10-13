@@ -148,6 +148,57 @@
   .incident-critique { border-left: 4px solid #dc3545; }
 </style>
 
+<!-- Photo d'en-tête du voyage -->
+{% if voyage.header_photo %}
+<div style="position: relative; margin-bottom: 30px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <img src="{{ voyage.header_photo.image.url }}" alt="{{ voyage.header_photo.titre }}" 
+       style="width: 100%; height: 300px; object-fit: cover;">
+  <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%);">
+    <div class="voyage-header" style="background: none; color: white; position: absolute; bottom: 0; left: 0; right: 0;">
+      <div style="display: flex; justify-content: space-between; align-items: start;">
+        <div>
+          <h1 style="margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">🌴 {{ voyage.sujet_voyage }}</h1>
+          <p style="margin: 10px 0 0 0; font-size: 18px; opacity: 0.9; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+            🚢 {{ voyage.bateau }} • {{ voyage.port_depart }} → {{ voyage.port_arrivee|default:"En cours" }}
+          </p>
+          {% if voyage.header_photo.titre %}
+          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.8; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+            📸 {{ voyage.header_photo.titre }}
+          </p>
+          {% endif %}
+        </div>
+        <span style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; font-size: 14px;">
+          {{ voyage.get_statut_display }}
+        </span>
+      </div>
+      
+      <div class="voyage-info">
+        <div class="info-item">
+          <div class="info-label">Skipper</div>
+          <div class="info-value">{{ voyage.skipper }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Période</div>
+          <div class="info-value">
+            {{ voyage.date_debut|date_fr }}
+            {% if voyage.date_fin %} - {{ voyage.date_fin|date_fr }}{% endif %}
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Entrées de log</div>
+          <div class="info-value">{{ entries_total_count|default:0 }} entrées</div>
+        </div>
+        {% if voyage_duration %}
+        <div class="info-item">
+          <div class="info-label">Durée</div>
+          <div class="info-value">{{ voyage_duration|duration_fr }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
 <div class="voyage-header">
   <div style="display: flex; justify-content: space-between; align-items: start;">
     <div>
@@ -185,6 +236,7 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
 
 <div class="action-buttons">
   <a href="{% url 'add_log_entry' voyage.pk %}" class="btn btn-primary">📝 Nouvelle entrée</a>
@@ -194,6 +246,7 @@
   <a href="{% url 'add_weather_condition' voyage.pk %}" class="btn btn-warning">🌤️ Ajouter météo</a>
   <a href="{% url 'add_crew_member' voyage.pk %}" class="btn btn-secondary">👥 Ajouter équipier</a>
   <a href="{% url 'add_incident' voyage.pk %}" class="btn btn-danger">⚠️ Signaler incident</a>
+  <a href="{% url 'voyage_gallery' voyage.pk %}" class="btn btn-info">📸 Photos ({{ voyage.photos_count }})</a>
   <a href="{% url 'export_voyage_pdf' voyage.pk %}" class="btn btn-info" target="_blank">📄 Export PDF</a>
   <a href="{% url 'voyage_log_update' voyage.pk %}" class="btn btn-secondary">✏️ Modifier voyage</a>
   {% if voyage.statut == 'preparation' %}
@@ -207,6 +260,7 @@
 <!-- Navigation par onglets -->
 <div class="nav-tabs">
   <button class="nav-tab active" onclick="showTab('timeline')">📋 Timeline</button>
+  <button class="nav-tab" onclick="showTab('photos')">📸 Photos ({{ voyage.photos_count }})</button>
   <button class="nav-tab" onclick="showTab('weather')">🌤️ Météo</button>
   <button class="nav-tab" onclick="showTab('crew')">👥 Équipage</button>
   <button class="nav-tab" onclick="showTab('incidents')">⚠️ Incidents</button>
@@ -302,6 +356,100 @@
       Aucune entrée dans le livre de bord.<br>
       <a href="{% url 'add_log_entry' voyage.pk %}">Ajouter la première entrée</a>
     </p>
+  {% endif %}
+</div>
+
+<!-- Onglet Photos -->
+<div id="photos" class="tab-content">
+  <h3>📸 Photos du voyage</h3>
+  
+  <!-- Actions rapides -->
+  <div style="margin-bottom: 20px; text-align: center;">
+    {% if not voyage.header_photo %}
+      <a href="{% url 'voyage_photo_upload' voyage.pk %}?type=header" class="btn btn-primary">
+        📸 Ajouter photo d'en-tête
+      </a>
+    {% endif %}
+    <a href="{% url 'voyage_photo_upload' voyage.pk %}?type=gallery" class="btn btn-secondary">
+      🖼️ Ajouter photo à la galerie
+    </a>
+    <a href="{% url 'voyage_gallery' voyage.pk %}" class="btn btn-info">
+      🔍 Voir toutes les photos
+    </a>
+  </div>
+
+  <!-- Photo d'en-tête -->
+  {% if voyage.header_photo %}
+  <div style="margin-bottom: 30px;">
+    <h4>📸 Photo d'en-tête</h4>
+    <div class="photo-header-preview" style="position: relative; text-align: center;">
+      <img src="{{ voyage.header_photo.image.url }}" alt="{{ voyage.header_photo.titre }}" 
+           style="max-width: 100%; max-height: 300px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+      {% if voyage.header_photo.titre or voyage.header_photo.description %}
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); color: white; padding: 15px; border-radius: 0 0 8px 8px;">
+        {% if voyage.header_photo.titre %}
+          <h6 style="margin: 0 0 5px 0;">{{ voyage.header_photo.titre }}</h6>
+        {% endif %}
+        {% if voyage.header_photo.description %}
+          <p style="margin: 0; font-size: 14px; opacity: 0.9;">{{ voyage.header_photo.description }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      <!-- Actions -->
+      <div style="position: absolute; top: 10px; right: 10px;">
+        <a href="{% url 'voyage_photo_update' voyage.header_photo.pk %}" class="btn btn-light btn-sm" title="Modifier">
+          ✏️
+        </a>
+        <a href="{% url 'voyage_photo_delete' voyage.header_photo.pk %}" class="btn btn-light btn-sm" title="Supprimer">
+          🗑️
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Aperçu galerie -->
+  <h4>🖼️ Galerie ({{ voyage.photos_count }} photo{% if voyage.photos_count > 1 %}s{% endif %})</h4>
+  
+  {% if voyage.gallery_photos %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+      {% for photo in voyage.gallery_photos|slice:":6" %}
+        <div style="position: relative; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <img src="{{ photo.image.url }}" alt="{{ photo.titre }}" 
+               style="width: 100%; height: 150px; object-fit: cover;">
+          
+          {% if photo.titre %}
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white; padding: 8px; font-size: 12px;">
+            {{ photo.titre }}
+          </div>
+          {% endif %}
+          
+          <!-- Actions overlay -->
+          <div style="position: absolute; top: 5px; right: 5px; opacity: 0.8;">
+            <a href="{% url 'voyage_photo_update' photo.pk %}" class="btn btn-light btn-sm" style="padding: 2px 6px; font-size: 10px;" title="Modifier">
+              ✏️
+            </a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    
+    {% if voyage.photos_count > 6 %}
+    <p style="text-align: center; color: #666;">
+      Et {{ voyage.photos_count|add:"-6" }} autre{% if voyage.photos_count|add:"-6" > 1 %}s{% endif %} photo{% if voyage.photos_count|add:"-6" > 1 %}s{% endif %}...
+      <br>
+      <a href="{% url 'voyage_gallery' voyage.pk %}">📸 Voir toutes les photos ({{ voyage.photos_count }})</a>
+    </p>
+    {% endif %}
+  {% else %}
+    <div style="text-align: center; color: #666; padding: 40px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;">
+      <h5>🖼️ Aucune photo dans la galerie</h5>
+      <p>Ajoutez des photos pour documenter ce voyage</p>
+      <a href="{% url 'voyage_photo_upload' voyage.pk %}?type=gallery" class="btn btn-primary">
+        📷 Ajouter la première photo
+      </a>
+    </div>
   {% endif %}
 </div>
 

@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load nautical_filters %}
+
+{% block title %}
+  {% if photo_type == 'header' %}Ajouter photo d'en-tête{% else %}Ajouter photo à la galerie{% endif %} - {{ voyage.sujet_voyage }}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- En-tête avec navigation -->
+  <div class="row mb-4">
+    <div class="col">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'home' %}">🏠 Accueil</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'voyage_log_list' %}">📖 Livres de bord</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'voyage_log_detail' voyage.pk %}">{{ voyage.sujet_voyage }}</a></li>
+          <li class="breadcrumb-item active">
+            {% if photo_type == 'header' %}📸 Photo d'en-tête{% else %}🖼️ Galerie{% endif %}
+          </li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Titre -->
+  <div class="row mb-4">
+    <div class="col">
+      <h2>
+        {% if photo_type == 'header' %}
+          📸 Photo d'en-tête pour {{ voyage.sujet_voyage }}
+        {% else %}
+          🖼️ Ajouter une photo à la galerie
+        {% endif %}
+      </h2>
+      <p class="text-muted">
+        {% if photo_type == 'header' %}
+          La photo d'en-tête s'affiche en haut de la page du voyage. Une seule photo d'en-tête par voyage.
+        {% else %}
+          Les photos de galerie s'affichent dans la section photos du voyage.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- Formulaire -->
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">
+            {% if form.instance.pk %}Modifier la photo{% else %}Nouvelle photo{% endif %}
+          </h5>
+        </div>
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- Prévisualisation -->
+            {% if form.instance.image %}
+            <div class="mb-3">
+              <label class="form-label">Photo actuelle :</label>
+              <div class="text-center">
+                <img src="{{ form.instance.image.url }}" alt="{{ form.instance.titre }}" 
+                     class="img-thumbnail" style="max-height: 200px;">
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- Champ image -->
+            <div class="mb-3">
+              <label for="{{ form.image.id_for_label }}" class="form-label">
+                📎 Photo <span class="text-danger">*</span>
+              </label>
+              {{ form.image }}
+              <div class="form-text">
+                Formats acceptés : JPG, PNG, GIF. Taille max : 10MB
+              </div>
+              {% if form.image.errors %}
+                <div class="text-danger">{{ form.image.errors }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Prévisualisation en temps réel -->
+            <div id="preview-container" class="mb-3" style="display: none;">
+              <label class="form-label">Aperçu :</label>
+              <div class="text-center">
+                <img id="photo-preview" class="img-thumbnail" style="max-height: 200px;">
+              </div>
+            </div>
+
+            <!-- Titre -->
+            <div class="mb-3">
+              <label for="{{ form.titre.id_for_label }}" class="form-label">📝 Titre</label>
+              {{ form.titre }}
+              {% if form.titre.errors %}
+                <div class="text-danger">{{ form.titre.errors }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Description -->
+            <div class="mb-3">
+              <label for="{{ form.description.id_for_label }}" class="form-label">📋 Description</label>
+              {{ form.description }}
+              {% if form.description.errors %}
+                <div class="text-danger">{{ form.description.errors }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Date de prise de vue (seulement pour galerie) -->
+            {% if photo_type != 'header' and form.date_prise %}
+            <div class="mb-3">
+              <label for="{{ form.date_prise.id_for_label }}" class="form-label">📅 Date de prise de vue</label>
+              {{ form.date_prise }}
+              {% if form.date_prise.errors %}
+                <div class="text-danger">{{ form.date_prise.errors }}</div>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Ordre (seulement pour galerie) -->
+            {% if photo_type != 'header' and form.ordre %}
+            <div class="mb-3">
+              <label for="{{ form.ordre.id_for_label }}" class="form-label">🔢 Ordre d'affichage</label>
+              {{ form.ordre }}
+              <div class="form-text">
+                Numéro pour ordonner les photos dans la galerie (0 = en premier)
+              </div>
+              {% if form.ordre.errors %}
+                <div class="text-danger">{{ form.ordre.errors }}</div>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Erreurs générales -->
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+              </div>
+            {% endif %}
+
+            <!-- Boutons -->
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">
+                {% if form.instance.pk %}💾 Modifier{% else %}📷 Ajouter{% endif %}
+              </button>
+              <a href="{% url 'voyage_log_detail' voyage.pk %}" class="btn btn-secondary">
+                ↩️ Retour au voyage
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Infos voyage -->
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">ℹ️ Informations du voyage</h6>
+        </div>
+        <div class="card-body">
+          <p><strong>🚢 Bateau :</strong> {{ voyage.bateau }}</p>
+          <p><strong>📍 Trajet :</strong> {{ voyage.port_depart }} → {{ voyage.port_arrivee }}</p>
+          <p><strong>📅 Période :</strong> {{ voyage.date_debut|date_fr }}
+            {% if voyage.date_fin %} - {{ voyage.date_fin|date_fr }}{% endif %}
+          </p>
+          <p><strong>👨‍✈️ Skipper :</strong> {{ voyage.skipper }}</p>
+          
+          <hr>
+          <p><strong>📸 Photos actuelles :</strong></p>
+          <ul class="small">
+            {% if voyage.header_photo %}
+              <li>✅ Photo d'en-tête</li>
+            {% else %}
+              <li>❌ Pas de photo d'en-tête</li>
+            {% endif %}
+            <li>🖼️ {{ voyage.photos_count }} photo(s) de galerie</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Prévisualisation de l'image sélectionnée
+document.addEventListener('DOMContentLoaded', function() {
+    const photoInput = document.getElementById('{{ form.image.id_for_label }}');
+    const previewContainer = document.getElementById('preview-container');
+    const previewImg = document.getElementById('photo-preview');
+
+    if (photoInput) {
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewContainer.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewContainer.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

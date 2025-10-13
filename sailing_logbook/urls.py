@@ -64,6 +64,13 @@ urlpatterns = [
     # Incidents
     path('livres-de-bord/<int:voyage_pk>/incident/nouveau/', views_new.add_incident, name='add_incident'),
     
+    # Photos de voyage
+    path('livres-de-bord/<int:pk>/photos/', views_new.voyage_gallery_view, name='voyage_gallery'),
+    path('livres-de-bord/<int:voyage_pk>/photos/nouveau/', views_new.VoyagePhotoUploadView.as_view(), name='voyage_photo_upload'),
+    path('photos/<int:pk>/edit/', views_new.VoyagePhotoUpdateView.as_view(), name='voyage_photo_update'),
+    path('photos/<int:pk>/delete/', views_new.VoyagePhotoDeleteView.as_view(), name='voyage_photo_delete'),
+    path('livres-de-bord/<int:voyage_pk>/photos/<int:photo_pk>/set-header/', views_new.set_header_photo, name='set_header_photo'),
+    
     # API pour mode live
     path('livres-de-bord/<int:pk>/api/entries/', views_new.voyage_log_api_entries, name='voyage_log_api_entries'),
     

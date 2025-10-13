@@ -3,7 +3,7 @@ Vues pour le nouveau système de livre de bord
 Basées sur la structure du PDF Livre_de_Bord.pdf
 """
 from django.shortcuts import render, get_object_or_404, redirect
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse, HttpResponse, Http404
@@ -21,11 +21,12 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm
 from io import BytesIO
 
-from .models_new import VoyageLogNew, LogEntryNew, WeatherConditionNew, CrewMemberNew, IncidentNew
+from .models_new import VoyageLogNew, LogEntryNew, WeatherConditionNew, CrewMemberNew, IncidentNew, VoyagePhoto
 from .forms_new import (
     VoyageLogForm, LogEntryNewForm, QuickLogEntryNewForm, 
     WeatherConditionNewForm, CrewMemberNewForm, IncidentNewForm,
-    LogEntryNewFormSet, CrewMemberNewFormSet, WeatherConditionNewFormSet
+    LogEntryNewFormSet, CrewMemberNewFormSet, WeatherConditionNewFormSet,
+    VoyagePhotoForm, HeaderPhotoForm, GalleryPhotoForm
 )
 
 
@@ -702,3 +703,132 @@ def export_voyage_pdf(request, pk):
         pass
     
     return response
+
+
+# =============================================================================
+# VUES POUR GESTION DES PHOTOS
+# =============================================================================
+
+class VoyagePhotoUploadView(CreateView):
+    """Vue pour ajouter une photo à un voyage"""
+    model = VoyagePhoto
+    template_name = 'nautical/voyage_photo_form.html'
+    
+    def get_form_class(self):
+        photo_type = self.request.GET.get('type', 'gallery')
+        if photo_type == 'header':
+            from .forms_new import HeaderPhotoForm
+            return HeaderPhotoForm
+        else:
+            from .forms_new import GalleryPhotoForm
+            return GalleryPhotoForm
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        self.voyage = get_object_or_404(VoyageLogNew, pk=self.kwargs['voyage_pk'])
+        context['voyage'] = self.voyage
+        context['photo_type'] = self.request.GET.get('type', 'gallery')
+        return context
+    
+    def form_valid(self, form):
+        self.voyage = get_object_or_404(VoyageLogNew, pk=self.kwargs['voyage_pk'])
+        form.instance.voyage = self.voyage
+        
+        # Si c'est une photo d'en-tête et qu'il y en a déjà une, la remplacer
+        if form.instance.type_photo == 'header':
+            existing_header = self.voyage.photos.filter(type_photo='header').first()
+            if existing_header:
+                existing_header.delete()
+        
+        messages.success(self.request, 
+            f"📸 Photo {'d\'en-tête' if form.instance.type_photo == 'header' else 'de galerie'} ajoutée avec succès !")
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse('voyage_log_detail', kwargs={'pk': self.kwargs['voyage_pk']})
+
+
+class VoyagePhotoUpdateView(UpdateView):
+    """Vue pour modifier une photo de voyage"""
+    model = VoyagePhoto
+    form_class = VoyagePhotoForm
+    template_name = 'nautical/voyage_photo_form.html'
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['voyage'] = self.object.voyage
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['voyage'] = self.object.voyage
+        context['photo_type'] = self.object.type_photo
+        return context
+    
+    def form_valid(self, form):
+        messages.success(self.request, "📸 Photo modifiée avec succès !")
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse('voyage_log_detail', kwargs={'pk': self.object.voyage.pk})
+
+
+class VoyagePhotoDeleteView(DeleteView):
+    """Vue pour supprimer une photo de voyage"""
+    model = VoyagePhoto
+    template_name = 'nautical/voyage_photo_confirm_delete.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['voyage'] = self.object.voyage
+        return context
+    
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        voyage = self.object.voyage
+        
+        # Supprimer le fichier image du système de fichiers
+        try:
+            if self.object.image:
+                self.object.image.delete(save=False)
+        except Exception:
+            pass  # Ignorer les erreurs de suppression de fichier
+        
+        messages.success(request, "🗑️ Photo supprimée avec succès !")
+        return super().delete(request, *args, **kwargs)
+    
+    def get_success_url(self):
+        return reverse('voyage_log_detail', kwargs={'pk': self.object.voyage.pk})
+
+
+def set_header_photo(request, voyage_pk, photo_pk):
+    """Vue pour définir une photo comme photo d'en-tête"""
+    voyage = get_object_or_404(VoyageLogNew, pk=voyage_pk)
+    photo = get_object_or_404(VoyagePhoto, pk=photo_pk, voyage=voyage)
+    
+    # Supprimer l'ancienne photo d'en-tête s'il y en a une
+    old_header = voyage.photos.filter(type_photo='header').first()
+    if old_header and old_header != photo:
+        old_header.type_photo = 'gallery'
+        old_header.save()
+    
+    # Définir cette photo comme en-tête
+    photo.type_photo = 'header'
+    photo.ordre = 0
+    photo.save()
+    
+    messages.success(request, f"📸 '{photo.titre or 'Photo'}' définie comme photo d'en-tête !")
+    return redirect('voyage_log_detail', pk=voyage_pk)
+
+
+def voyage_gallery_view(request, pk):
+    """Vue pour afficher la galerie complète d'un voyage"""
+    voyage = get_object_or_404(VoyageLogNew, pk=pk)
+    
+    context = {
+        'voyage': voyage,
+        'gallery_photos': voyage.gallery_photos,
+        'header_photo': voyage.header_photo,
+    }
+    
+    return render(request, 'nautical/voyage_gallery.html', context)

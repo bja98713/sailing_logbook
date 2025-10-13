@@ -65,6 +65,21 @@ class VoyageLogNew(models.Model):
         if not self.bateau:
             self.bateau = 'MANTA'
         super().save(*args, **kwargs)
+    
+    @property
+    def header_photo(self):
+        """Retourne la photo d'en-tête du voyage"""
+        return self.photos.filter(type_photo='header').first()
+    
+    @property
+    def gallery_photos(self):
+        """Retourne les photos de galerie du voyage triées par ordre"""
+        return self.photos.filter(type_photo='gallery').order_by('ordre', 'created_at')
+    
+    @property
+    def photos_count(self):
+        """Nombre total de photos (hors en-tête)"""
+        return self.photos.filter(type_photo='gallery').count()
 
 
 class WeatherConditionNew(models.Model):
@@ -307,3 +322,85 @@ class SecurityInstruction(models.Model):
     
     def __str__(self):
         return f"{self.titre} ({self.get_priorite_display()})"
+
+
+class VoyagePhoto(models.Model):
+    """
+    Photos associées à un voyage
+    Gestion photo d'en-tête + galerie de photos
+    """
+    voyage = models.ForeignKey(VoyageLogNew, on_delete=models.CASCADE, related_name='photos')
+    
+    # Fichier image
+    image = models.ImageField(upload_to='voyages/photos/%Y/%m/', verbose_name="Photo")
+    
+    # Type de photo
+    TYPE_CHOICES = [
+        ('header', 'Photo d\'en-tête'),
+        ('gallery', 'Photo de galerie'),
+    ]
+    type_photo = models.CharField(max_length=20, choices=TYPE_CHOICES, default='gallery', verbose_name="Type de photo")
+    
+    # Métadonnées
+    titre = models.CharField(max_length=200, blank=True, verbose_name="Titre de la photo")
+    description = models.TextField(blank=True, verbose_name="Description")
+    date_prise = models.DateField(null=True, blank=True, verbose_name="Date de prise de vue")
+    
+    # Position dans la galerie
+    ordre = models.PositiveIntegerField(default=0, verbose_name="Ordre d'affichage")
+    
+    # Métadonnées techniques
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Taille du fichier (en bytes)
+    taille_fichier = models.PositiveIntegerField(null=True, blank=True, verbose_name="Taille du fichier")
+    
+    class Meta:
+        verbose_name = "Photo de voyage"
+        verbose_name_plural = "Photos de voyage"
+        ordering = ['type_photo', 'ordre', 'created_at']
+        indexes = [
+            models.Index(fields=['voyage', 'type_photo']),
+            models.Index(fields=['voyage', 'ordre']),
+        ]
+        constraints = [
+            # Une seule photo d'en-tête par voyage
+            models.UniqueConstraint(
+                fields=['voyage'], 
+                condition=models.Q(type_photo='header'),
+                name='unique_header_photo_per_voyage'
+            )
+        ]
+    
+    def __str__(self):
+        type_display = "📸" if self.type_photo == 'header' else "🖼️"
+        titre = self.titre or f"Photo {self.id}"
+        return f"{type_display} {titre} - {self.voyage.sujet_voyage}"
+    
+    def save(self, *args, **kwargs):
+        # Calculer la taille du fichier si pas encore définie
+        if self.image and not self.taille_fichier:
+            try:
+                self.taille_fichier = self.image.size
+            except (AttributeError, IOError):
+                pass
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def taille_fichier_human(self):
+        """Retourne la taille du fichier en format lisible"""
+        if not self.taille_fichier:
+            return "Inconnue"
+        
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if self.taille_fichier < 1024.0:
+                return f"{self.taille_fichier:.1f} {unit}"
+            self.taille_fichier /= 1024.0
+        return f"{self.taille_fichier:.1f} TB"
+    
+    @property
+    def is_header(self):
+        """True si c'est la photo d'en-tête"""
+        return self.type_photo == 'header'

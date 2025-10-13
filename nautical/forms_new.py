@@ -4,7 +4,7 @@ Basés sur les modèles créés à partir de Livre_de_Bord.pdf
 """
 from django import forms
 from django.forms import inlineformset_factory
-from .models_new import VoyageLogNew, LogEntryNew, WeatherConditionNew, CrewMemberNew, IncidentNew
+from .models_new import VoyageLogNew, LogEntryNew, WeatherConditionNew, CrewMemberNew, IncidentNew, VoyagePhoto
 
 
 class VoyageLogForm(forms.ModelForm):
@@ -317,3 +317,161 @@ WeatherConditionNewFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+
+
+class VoyagePhotoForm(forms.ModelForm):
+    """Formulaire pour ajouter/modifier une photo de voyage"""
+    
+    class Meta:
+        model = VoyagePhoto
+        fields = [
+            'image', 'type_photo', 'titre', 'description', 
+            'date_prise', 'ordre'
+        ]
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control', 
+                'accept': 'image/*',
+                'id': 'photo_input'
+            }),
+            'type_photo': forms.Select(attrs={'class': 'form-control'}),
+            'titre': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Titre de la photo (optionnel)'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 3,
+                'placeholder': 'Description de la photo (optionnel)'
+            }),
+            'date_prise': forms.DateInput(attrs={
+                'type': 'date', 
+                'class': 'form-control'
+            }),
+            'ordre': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'min': '0',
+                'placeholder': 'Ordre d\'affichage'
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        voyage = kwargs.pop('voyage', None)
+        super().__init__(*args, **kwargs)
+        
+        # Pré-remplir la date de prise de vue avec la date du voyage
+        if voyage and not self.instance.pk:
+            self.fields['date_prise'].initial = voyage.date_debut
+        
+        # Si c'est une modification et qu'il y a déjà une photo d'en-tête,
+        # ne pas permettre de créer une autre photo d'en-tête
+        if voyage and not self.instance.pk:
+            existing_header = voyage.photos.filter(type_photo='header').exists()
+            if existing_header:
+                # Retirer l'option "header" des choix
+                choices = [c for c in self.fields['type_photo'].choices if c[0] != 'header']
+                self.fields['type_photo'].choices = choices
+                self.fields['type_photo'].initial = 'gallery'
+
+    def clean_image(self):
+        image = self.cleaned_data.get('image')
+        if image:
+            # Vérifier la taille du fichier (limite à 10MB)
+            if image.size > 10 * 1024 * 1024:
+                raise forms.ValidationError("La photo est trop volumineuse (max 10MB)")
+            
+            # Vérifier le type de fichier
+            if not image.content_type.startswith('image/'):
+                raise forms.ValidationError("Le fichier doit être une image")
+        
+        return image
+
+    def clean(self):
+        cleaned_data = super().clean()
+        type_photo = cleaned_data.get('type_photo')
+        voyage = getattr(self.instance, 'voyage', None)
+        
+        # Vérifier qu'il n'y a qu'une seule photo d'en-tête par voyage
+        if type_photo == 'header' and voyage:
+            existing_header = voyage.photos.filter(type_photo='header')
+            if self.instance.pk:
+                existing_header = existing_header.exclude(pk=self.instance.pk)
+            
+            if existing_header.exists():
+                raise forms.ValidationError("Il ne peut y avoir qu'une seule photo d'en-tête par voyage")
+        
+        return cleaned_data
+
+
+class HeaderPhotoForm(forms.ModelForm):
+    """Formulaire spécialisé pour la photo d'en-tête uniquement"""
+    
+    class Meta:
+        model = VoyagePhoto
+        fields = ['image', 'titre', 'description']
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control', 
+                'accept': 'image/*',
+                'id': 'header_photo_input'
+            }),
+            'titre': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Titre de la photo d\'en-tête (optionnel)'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 2,
+                'placeholder': 'Description (optionnel)'
+            }),
+        }
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        # Forcer le type à header
+        obj.type_photo = 'header'
+        obj.ordre = 0  # En-tête toujours en premier
+        if commit:
+            obj.save()
+        return obj
+
+
+class GalleryPhotoForm(forms.ModelForm):
+    """Formulaire spécialisé pour les photos de galerie"""
+    
+    class Meta:
+        model = VoyagePhoto
+        fields = ['image', 'titre', 'description', 'date_prise', 'ordre']
+        widgets = {
+            'image': forms.FileInput(attrs={
+                'class': 'form-control', 
+                'accept': 'image/*'
+            }),
+            'titre': forms.TextInput(attrs={
+                'class': 'form-control', 
+                'placeholder': 'Titre de la photo'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 2,
+                'placeholder': 'Description'
+            }),
+            'date_prise': forms.DateInput(attrs={
+                'type': 'date', 
+                'class': 'form-control'
+            }),
+            'ordre': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'min': '0'
+            }),
+        }
+
+    def save(self, commit=True):
+        obj = super().save(commit=False)
+        # Forcer le type à gallery
+        obj.type_photo = 'gallery'
+        if commit:
+            obj.save()
+        return obj
+
+
