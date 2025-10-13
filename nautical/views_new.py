@@ -740,8 +740,9 @@ class VoyagePhotoUploadView(CreateView):
             if existing_header:
                 existing_header.delete()
         
+        photo_type_msg = "d'en-tête" if form.instance.type_photo == 'header' else 'de galerie'
         messages.success(self.request, 
-            f"📸 Photo {'d\'en-tête' if form.instance.type_photo == 'header' else 'de galerie'} ajoutée avec succès !")
+            f"📸 Photo {photo_type_msg} ajoutée avec succès !")
         return super().form_valid(form)
     
     def get_success_url(self):
